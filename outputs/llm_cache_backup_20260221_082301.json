@@ -1,0 +1,44 @@
+{
+  "41363801": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41363801",
+      "why_this_matters": "Teclistamab plus daratumumab significantly improved progression-free survival in relapsed/refractory multiple myeloma, offering a new, highly effective treatment option for these patients.",
+      "clinical_impact_12m": 4,
+      "method_quality": 5,
+      "novelty": 4,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-20T19:17:20Z"
+  },
+  "41712898": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41712898",
+      "why_this_matters": "This de novo guideline introduces new clinical categories for acute pulmonary embolism, enhancing precision in severity classification, prognosis, and evidence-based therapeutic decision-making. It will significantly impact clinical practice.",
+      "clinical_impact_12m": 5,
+      "method_quality": 5,
+      "novelty": 5,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.95
+    },
+    "updated_at": "2026-02-20T19:17:57Z"
+  },
+  "41289032": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41289032",
+      "why_this_matters": "This is the first-in-human phase I/II trial of a tetravalent Klebsiella pneumoniae bioconjugate vaccine, showing it is well-tolerated and immunogenic in healthy adults. This is a crucial step towards preventing K. pneumoniae infections.",
+      "clinical_impact_12m": 2,
+      "method_quality": 4,
+      "novelty": 5,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-20T19:17:57Z"
+  }
+}

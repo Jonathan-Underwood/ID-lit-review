@@ -1,0 +1,953 @@
+[
+  {
+    "pmid": "41728941",
+    "title": "Therapeutic effect of eravacycline against carbapenem-resistant hypervirulent Klebsiella pneumoniae in mouse models.",
+    "journal": "Antimicrob Agents Chemother",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 10,
+    "rule_score": 8,
+    "llm_score": 2,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+2",
+      "basic_science_keywords=+1",
+      "llm_priority=+2"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": {
+      "pmid": "41728941",
+      "why_it_matters_points": [
+        "Carbapenem-resistant hypervirulent Klebsiella pneumoniae (CR-hvKP) presents a major clinical challenge due to its combined drug resistance and high virulence.",
+        "Effective treatment options for CR-hvKP infections are severely limited, contributing to high morbidity and mortality rates.",
+        "There is a critical need to identify and evaluate novel therapeutic agents capable of combating these highly resistant and virulent pathogens."
+      ],
+      "headline_result": "In mouse models of CR-hvKP pneumonia, eravacycline treatment significantly reduced bacterial colonization in the lungs (P<0.01), attenuated lung injury and inflammation, and suppressed serum cytokine levels (P<0.05).",
+      "trial_n": "not reported",
+      "clinical_takeaway": [
+        "Eravacycline demonstrates promising preclinical efficacy against carbapenem-resistant hypervirulent Klebsiella pneumoniae, suggesting its potential as a future therapeutic option.",
+        "These findings are from mouse models and require validation through human clinical trials before any clinical recommendations can be made.",
+        "Clinicians should be aware of ongoing research into novel agents for CR-hvKP, but current practice remains unchanged."
+      ],
+      "read_recommendation": "awareness_only",
+      "clinical_impact_12m": 1,
+      "method_quality": 3,
+      "novelty": 3,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.65
+    },
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41728941/",
+    "doi_url": "https://doi.org/10.1128/aac.01237-25"
+  },
+  {
+    "pmid": "41655588",
+    "title": "Tenecteplase versus standard medical treatment for basilar artery occlusion within 24 h (TRACE-5): a multicentre, prospective, randomised, open-label, blinded-endpoint, superiority, phase 3 trial.",
+    "journal": "Lancet",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Multicenter Study",
+      "Clinical Trial, Phase III",
+      "Randomized Controlled Trial",
+      "Comparative Study",
+      "Equivalence Trial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41655588/",
+    "doi_url": "https://doi.org/10.1016/S0140-6736(25)02633-9"
+  },
+  {
+    "pmid": "41655584",
+    "title": "Efimosfermin alfa (BOS-580) once per month in people with metabolic dysfunction-associated steatohepatitis with F2 or F3 fibrosis: results from a 24-week, randomised, double-blind, placebo-controlled, phase 2 trial.",
+    "journal": "Lancet",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Clinical Trial, Phase II",
+      "Randomized Controlled Trial",
+      "Multicenter Study"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41655584/",
+    "doi_url": "https://doi.org/10.1016/S0140-6736(25)02276-7"
+  },
+  {
+    "pmid": "41653933",
+    "title": "Recombinant factor VIIa versus placebo for spontaneous intracerebral haemorrhage within 2 h of symptom onset (FASTEST): a multicentre, double-blind, randomised, placebo-controlled, phase 3 trial.",
+    "journal": "Lancet",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Clinical Trial, Phase III",
+      "Multicenter Study",
+      "Randomized Controlled Trial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41653933/",
+    "doi_url": "https://doi.org/10.1016/S0140-6736(26)00097-8"
+  },
+  {
+    "pmid": "41724329",
+    "title": "Carbapenemase-producing Klebsiella pneumoniae harboring virulence-associated genes among war-affected children from the Gaza Strip.",
+    "journal": "Clin Microbiol Infect",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+3",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Letter"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41724329/",
+    "doi_url": "https://doi.org/10.1016/j.cmi.2026.02.015"
+  },
+  {
+    "pmid": "41729142",
+    "title": "2026 Acute Pulmonary Embolism Guideline-at-a-Glance.",
+    "journal": "J Am Coll Cardiol",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "article_type:practice guideline=+4",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Practice Guideline"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41729142/",
+    "doi_url": "https://doi.org/10.1016/j.jacc.2025.12.023"
+  },
+  {
+    "pmid": "41728971",
+    "title": "Functional characterization of a novel class A carbapenemase CAE-1 in carbapenem-resistant Pseudomonas aeruginosa clinical isolates.",
+    "journal": "Antimicrob Agents Chemother",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+2"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41728971/",
+    "doi_url": "https://doi.org/10.1128/aac.01362-25"
+  },
+  {
+    "pmid": "41725190",
+    "title": "Is three really what we need? Relative effectiveness of benzathine penicillin G and doxycycline treatment regimens for late or unknown duration syphilis in 6 United States jurisdictions, 2016-2021.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41725190/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag099"
+  },
+  {
+    "pmid": "41725182",
+    "title": "Strong real-world evidence that a single dose of benzathine penicillin G or a 28-day course of oral doxycycline is not inferior to three doses of benzathine penicillin G for the treatment of late latent or syphilis of unknown duration.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41725182/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag101"
+  },
+  {
+    "pmid": "41721520",
+    "title": "Clinical characteristics and survival of hospitalized anthrax patients with pleural, pericardial, or peritoneal fluid collections.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41721520/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag113"
+  },
+  {
+    "pmid": "41721519",
+    "title": "Legionella Pneumonia in the Modern Era: Clinical Features and Predictors of Mortality.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41721519/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag085"
+  },
+  {
+    "pmid": "41721101",
+    "title": "Colonoscopy and fecal immunochemical testing versus usual care in diagnostic colorectal cancer screening: the SCREESCO randomized controlled trial.",
+    "journal": "Nat Med",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "article_type_heuristic:randomized controlled trial=+4",
+      "near_term_keywords=+2",
+      "oncology_downweight=-2"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41721101/",
+    "doi_url": "https://doi.org/10.1038/s41591-026-04225-9"
+  },
+  {
+    "pmid": "41729549",
+    "title": "Does This Patient Have Volume Overload?: The Rational Clinical Examination.",
+    "journal": "JAMA",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 5,
+    "rule_score": 5,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "near_term_keywords=+2"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41729549/",
+    "doi_url": "https://doi.org/10.1001/jama.2026.0446"
+  },
+  {
+    "pmid": "41728982",
+    "title": "Phenotypic high-throughput screening identifies modulators of gut microbial choline metabolism.",
+    "journal": "mBio",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 5,
+    "rule_score": 5,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41728982/",
+    "doi_url": "https://doi.org/10.1128/mbio.01172-25"
+  },
+  {
+    "pmid": "41720151",
+    "title": "Longitudinal symptom transitions predict incident tuberculosis risk in serial active case finding.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 5,
+    "rule_score": 5,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41720151/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag119"
+  },
+  {
+    "pmid": "41706891",
+    "title": "\u03b22-microglobulin inhibits Escherichia coli biofilm formation via selectively blocking curli assembly.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 4,
+    "rule_score": 4,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1",
+      "basic_science_keywords=+2"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706891/",
+    "doi_url": "https://doi.org/10.1073/pnas.2515986123"
+  },
+  {
+    "pmid": "41721795",
+    "title": "Pelacarsen and lipoprotein(a) apheresis in secondary prevention: the Lp(a)FRONTIERS APHERESIS trial.",
+    "journal": "Eur Heart J",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 4,
+    "rule_score": 4,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "near_term_keywords=+2"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41721795/",
+    "doi_url": "https://doi.org/10.1093/eurheartj/ehag073"
+  },
+  {
+    "pmid": "41701828",
+    "title": "Stripe rust fungus subverts wheat phase separation-mediated immunity to promote infection.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 3,
+    "rule_score": 3,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701828/",
+    "doi_url": "https://doi.org/10.1073/pnas.2522267123"
+  },
+  {
+    "pmid": "41729545",
+    "title": "Voices of Resilience-Empowering Lifetime Survivors of HIV.",
+    "journal": "JAMA Intern Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 3,
+    "rule_score": 3,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41729545/",
+    "doi_url": "https://doi.org/10.1001/jamainternmed.2025.8098"
+  },
+  {
+    "pmid": "41729543",
+    "title": "Comparative Effectiveness and Safety of LAMA-LABA Inhalers in Chronic Obstructive Pulmonary Disease.",
+    "journal": "JAMA Intern Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 3,
+    "rule_score": 3,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41729543/",
+    "doi_url": "https://doi.org/10.1001/jamainternmed.2025.8087"
+  },
+  {
+    "pmid": "41712647",
+    "title": "The effect of land costs on the economic and sustainability performance of solar photovoltaics in China.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41712647/",
+    "doi_url": "https://doi.org/10.1073/pnas.2512930123"
+  },
+  {
+    "pmid": "41706903",
+    "title": "Network-based genetic monitoring of landscape fragmentation.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706903/",
+    "doi_url": "https://doi.org/10.1073/pnas.2515033123"
+  },
+  {
+    "pmid": "41706884",
+    "title": "Cryo-EM structure of locked spike glycoprotein from bat SARS-like coronavirus WIV1, molecular dynamics and biophysics across host range.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706884/",
+    "doi_url": "https://doi.org/10.1073/pnas.2516874123"
+  },
+  {
+    "pmid": "41706882",
+    "title": "CDKL5 modulates the plasticity of excitatory synapses via liquid-liquid phase separation.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706882/",
+    "doi_url": "https://doi.org/10.1073/pnas.2511123123"
+  },
+  {
+    "pmid": "41706877",
+    "title": "T-cadherin, a major adiponectin binding partner, suppresses ERK signaling in metabolic tissues.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706877/",
+    "doi_url": "https://doi.org/10.1073/pnas.2530597123"
+  },
+  {
+    "pmid": "41701844",
+    "title": "Wireless soft implantable pressure sensors based on liquid metal with large-area mapping and adaptive implantation capabilities.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701844/",
+    "doi_url": "https://doi.org/10.1073/pnas.2528796123"
+  },
+  {
+    "pmid": "41701843",
+    "title": "Avalanches of choice: How stranger-to-stranger interactions shape crowd dynamics.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701843/",
+    "doi_url": "https://doi.org/10.1073/pnas.2528167123"
+  },
+  {
+    "pmid": "41701839",
+    "title": "RNA-binding activity of PHGDH drives amyloid-beta production in a human brain organoid model of sporadic Alzheimer's disease.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701839/",
+    "doi_url": "https://doi.org/10.1073/pnas.2532234123"
+  },
+  {
+    "pmid": "41701835",
+    "title": "Artificially constructed collagen-targeting receptors on mesenchymal stromal cells promote anoikis resistance and tissue repair.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701835/",
+    "doi_url": "https://doi.org/10.1073/pnas.2525881123"
+  },
+  {
+    "pmid": "41701832",
+    "title": "Exquisite specificity of Pks13 defines the essentiality of trehalose in mycobacteria.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701832/",
+    "doi_url": "https://doi.org/10.1073/pnas.2507896123"
+  },
+  {
+    "pmid": "41701829",
+    "title": "Regulatory T cells safeguard liver health during metabolic-associated steatohepatitis.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701829/",
+    "doi_url": "https://doi.org/10.1073/pnas.2536314123"
+  },
+  {
+    "pmid": "41701827",
+    "title": "Nutrigenomic profiling identifies ZIP10 (SLC39A10) as a regulator of erythroid zinc homeostasis with genetic associations to anemia risk.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701827/",
+    "doi_url": "https://doi.org/10.1073/pnas.2533600123"
+  },
+  {
+    "pmid": "41725523",
+    "title": "Scaling up efforts to target evolving viruses.",
+    "journal": "Elife",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Editorial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41725523/",
+    "doi_url": "https://doi.org/10.7554/eLife.110630"
+  },
+  {
+    "pmid": "41725518",
+    "title": "High-throughput neutralization measurements correlate strongly with evolutionary success of human influenza strains.",
+    "journal": "Elife",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 2,
+    "rule_score": 2,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "id_keywords=+1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41725518/",
+    "doi_url": "https://doi.org/10.7554/eLife.106811"
+  },
+  {
+    "pmid": "41701830",
+    "title": "A canine PLP1 missense variant differentiates oligodendrocyte maturation in connatal and classical Pelizaeus-Merzbacher disease.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 1,
+    "rule_score": 1,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41701830/",
+    "doi_url": "https://doi.org/10.1073/pnas.2523008123"
+  },
+  {
+    "pmid": "41729568",
+    "title": "Protein-induced membrane strain drives supercomplex formation.",
+    "journal": "Elife",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 1,
+    "rule_score": 1,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41729568/",
+    "doi_url": "https://doi.org/10.7554/eLife.102104"
+  },
+  {
+    "pmid": "41576982",
+    "title": "Leprosy.",
+    "journal": "Lancet",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 1,
+    "rule_score": 1,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "near_term_keywords=+1",
+      "review_downweight=-3"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Review"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41576982/",
+    "doi_url": "https://doi.org/10.1016/S0140-6736(25)01963-4"
+  },
+  {
+    "pmid": "41706888",
+    "title": "Oncogenic function and transcriptional dynamics of MYCN in liver tumorigenesis.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 0,
+    "rule_score": 0,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "basic_science_keywords=+1",
+      "oncology_downweight=-2"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706888/",
+    "doi_url": "https://doi.org/10.1073/pnas.2521923123"
+  },
+  {
+    "pmid": "41721074",
+    "title": "Gasdermins against intracellular bacterial pathogens.",
+    "journal": "Nat Microbiol",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": 0,
+    "rule_score": 0,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "id_keywords=+1",
+      "review_downweight=-3"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Review"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41721074/",
+    "doi_url": "https://doi.org/10.1038/s41564-026-02272-z"
+  },
+  {
+    "pmid": "41706894",
+    "title": "Lamin B receptor upregulation in metastatic melanoma causes nuclear envelope fragility in confined migration during cancer invasion.",
+    "journal": "Proc Natl Acad Sci U S A",
+    "journal_group": "basic_translational_infection_relevant",
+    "pub_date": "2026",
+    "score": -1,
+    "rule_score": -1,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "near_term_keywords=+1",
+      "basic_science_keywords=+2",
+      "oncology_downweight=-2",
+      "review_downweight=-3"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706894/",
+    "doi_url": "https://doi.org/10.1073/pnas.2513031123"
+  }
+]

@@ -1,0 +1,1069 @@
+[
+  {
+    "pmid": "41289032",
+    "title": "Safety and Immunogenicity of a Klebsiella pneumoniae Tetravalent Bioconjugate Vaccine (Kleb4V) Administered to Healthy Adults: A First-in-Human Phase I/II Randomized and Controlled Study.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 15,
+    "rule_score": 12,
+    "llm_score": 3,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "id_keywords=+3",
+      "llm_priority=+3"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Clinical Trial, Phase I",
+      "Randomized Controlled Trial",
+      "Clinical Trial, Phase II"
+    ],
+    "llm_enrichment": {
+      "pmid": "41289032",
+      "why_this_matters": "This is the first-in-human phase I/II trial of a tetravalent Klebsiella pneumoniae bioconjugate vaccine, showing it is well-tolerated and immunogenic in healthy adults. This is a crucial step towards preventing K. pneumoniae infections.",
+      "clinical_impact_12m": 2,
+      "method_quality": 4,
+      "novelty": 5,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41289032/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf600"
+  },
+  {
+    "pmid": "41285172",
+    "title": "Safety and Immunogenicity of a Severe Acute Respiratory Syndrome Coronavirus 2 Spike Subunit Vaccine Stabilized in the Prefusion Conformation by a Second-Generation Molecular Clamp and Evaluated in Adults Aged 18-55 Years: A Randomized, Double-Blind, Active Comparator, Phase I Trial.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 13,
+    "rule_score": 13,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+2",
+      "id_keywords=+2",
+      "basic_science_keywords=+1",
+      "llm_error:http_429: { \"error\": { \"code\": 429, \"message\": \"you exceeded your current quota, please check your plan and billing details. for more inform"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Clinical Trial, Phase I",
+      "Randomized Controlled Trial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41285172/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf568"
+  },
+  {
+    "pmid": "41712898",
+    "title": "2026 AHA/ACC/ACCP/ACEP/CHEST/SCAI/SHM/SIR/SVM/SVN Guideline for the Evaluation and Management of Acute Pulmonary Embolism in Adults: A Report of the American College of Cardiology/American Heart Association Joint Committee on Clinical Practice Guidelines.",
+    "journal": "J Am Coll Cardiol",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 13,
+    "rule_score": 8,
+    "llm_score": 5,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "article_type:practice guideline=+4",
+      "near_term_keywords=+2",
+      "llm_priority=+5"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Practice Guideline"
+    ],
+    "llm_enrichment": {
+      "pmid": "41712898",
+      "why_this_matters": "This de novo guideline introduces new clinical categories for acute pulmonary embolism, enhancing precision in severity classification, prognosis, and evidence-based therapeutic decision-making. It will significantly impact clinical practice.",
+      "clinical_impact_12m": 5,
+      "method_quality": 5,
+      "novelty": 5,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.95
+    },
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41712898/",
+    "doi_url": "https://doi.org/10.1016/j.jacc.2025.11.005"
+  },
+  {
+    "pmid": "41711453",
+    "title": "RSV Vaccination in Solid Organ Transplant Recipients: Interim Findings From a Phase 3 Trial of mRNA-1345.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 12,
+    "rule_score": 12,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "article_type_heuristic:clinical trial, phase iii=+4",
+      "near_term_keywords=+1",
+      "id_keywords=+1",
+      "basic_science_keywords=+1",
+      "llm_error:http_429: { \"error\": { \"code\": 429, \"message\": \"you exceeded your current quota, please check your plan and billing details. for more inform"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41711453/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag108"
+  },
+  {
+    "pmid": "41707171",
+    "title": "Cabotegravir plus Rilpivirine for Persons with HIV and Adherence Challenges.",
+    "journal": "N Engl J Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 10,
+    "rule_score": 10,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type_heuristic:randomized controlled trial=+4",
+      "near_term_keywords=+2",
+      "id_keywords=+1",
+      "llm_error:http_429: { \"error\": { \"code\": 429, \"message\": \"you exceeded your current quota, please check your plan and billing details. for more inform"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707171/",
+    "doi_url": "https://doi.org/10.1056/NEJMoa2508228"
+  },
+  {
+    "pmid": "41071936",
+    "title": "Immune Responses to BK Virus in Renal Transplant Recipients Receiving Intravenous Immunoglobulin Treatment.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 10,
+    "rule_score": 10,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "basic_science_keywords=+1",
+      "llm_error:http_429: { \"error\": { \"code\": 429, \"message\": \"you exceeded your current quota, please check your plan and billing details. for more inform"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Multicenter Study"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41071936/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf525"
+  },
+  {
+    "pmid": "41619752",
+    "title": "Triple cardiovascular disease detection with an artificial intelligence-enabled stethoscope (TRICORDER) in the UK: a cluster-randomised controlled implementation trial.",
+    "journal": "Lancet",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 10,
+    "rule_score": 10,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+3",
+      "llm_error:http_429: { \"error\": { \"code\": 429, \"message\": \"you exceeded your current quota, please check your plan and billing details. for more inform"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Pragmatic Clinical Trial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41619752/",
+    "doi_url": "https://doi.org/10.1016/S0140-6736(25)02156-7"
+  },
+  {
+    "pmid": "41486473",
+    "title": "Corticosteroid Therapy and Long-Term Outcomes of Post-Infectious Inflammatory Syndrome in Non-HIV Immunosuppressed Cryptococcal Meningitis: A Multicenter Case Series.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 9,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+4",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Multicenter Study"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41486473/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf620"
+  },
+  {
+    "pmid": "41254867",
+    "title": "CRISPR-Cas-associated SCCmec Variants in Methicillin-resistant Staphylococcus aureus Evade Rapid Diagnostic Detection.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 9,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+2",
+      "id_keywords=+2",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41254867/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf575"
+  },
+  {
+    "pmid": "41063661",
+    "title": "Trichomonas vaginalis Among Cisgender Women Taking Doxycycline Postexposure Prophylaxis.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 9,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41063661/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf519"
+  },
+  {
+    "pmid": "41057142",
+    "title": "Phospholipid Transporter MlaFEDCB Regulates Klebsiella pneumoniae Virulence by Modulating Fimbriae Synthesis and Stress-adaptive Growth.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 9,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+3",
+      "basic_science_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41057142/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf517"
+  },
+  {
+    "pmid": "41685885",
+    "title": "Variable Staphylothrombin Activity in Staphylococcus aureus Bloodstream Infections.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 9,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+2",
+      "basic_science_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41685885/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag012"
+  },
+  {
+    "pmid": "41363801",
+    "title": "Teclistamab plus Daratumumab in Relapsed or Refractory Multiple Myeloma.",
+    "journal": "N Engl J Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 9,
+    "rule_score": 5,
+    "llm_score": 4,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "review_downweight=-3",
+      "llm_priority=+4"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Clinical Trial, Phase III",
+      "Multicenter Study",
+      "Comparative Study"
+    ],
+    "llm_enrichment": {
+      "pmid": "41363801",
+      "why_this_matters": "Teclistamab plus daratumumab significantly improved progression-free survival in relapsed/refractory multiple myeloma, offering a new, highly effective treatment option for these patients.",
+      "clinical_impact_12m": 4,
+      "method_quality": 5,
+      "novelty": 4,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41363801/",
+    "doi_url": "https://doi.org/10.1056/NEJMoa2514663"
+  },
+  {
+    "pmid": "41707138",
+    "title": "An Antibody-Oligonucleotide Conjugate for Myotonic Dystrophy Type 1.",
+    "journal": "N Engl J Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Multicenter Study",
+      "Clinical Trial, Phase II",
+      "Clinical Trial, Phase I"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707138/",
+    "doi_url": "https://doi.org/10.1056/NEJMoa2407326"
+  },
+  {
+    "pmid": "41715985",
+    "title": "Presentation and prognosis of cryptococcosis requiring intensive care unit admission in France: the CRYPTO-ICU study.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "id_keywords=+3",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41715985/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag091"
+  },
+  {
+    "pmid": "41711419",
+    "title": "Intrathecal Isoniazid and Dexamethasone Therapy May Improve Outcomes in Patients with Tuberculous Meningitis: A Two-Center Retrospective Cohort Study.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41711419/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag106"
+  },
+  {
+    "pmid": "41364689",
+    "title": "Expectant Management vs Medication for Patent Ductus Arteriosus in Preterm Infants: The PDA Randomized Clinical Trial.",
+    "journal": "JAMA",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Multicenter Study",
+      "Comparative Study",
+      "Comment"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41364689/",
+    "doi_url": "https://doi.org/10.1001/jama.2025.23330"
+  },
+  {
+    "pmid": "41360717",
+    "title": "Cryopreserved vs Liquid-Stored Platelets for the Treatment of Surgical Bleeding: The CLIP-II Randomized Noninferiority Clinical Trial.",
+    "journal": "JAMA",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Multicenter Study",
+      "Randomized Controlled Trial",
+      "Equivalence Trial",
+      "Comparative Study",
+      "Comment"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41360717/",
+    "doi_url": "https://doi.org/10.1001/jama.2025.23355"
+  },
+  {
+    "pmid": "41707748",
+    "title": "ESCMID Clinical Guidelines on the Evaluation and Management of a Reported Antibiotic Allergy.",
+    "journal": "Clin Microbiol Infect",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+3",
+      "id_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707748/",
+    "doi_url": "https://doi.org/10.1016/j.cmi.2026.02.011"
+  },
+  {
+    "pmid": "41698464",
+    "title": "Evaluating the antibacterial activity of ceftazidime/avibactam and aztreonam combinations against multidrug-resistant Stenotrophomonas maltophilia complex isolates in a hollow fiber infection model.",
+    "journal": "Clin Microbiol Infect",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 8,
+    "rule_score": 8,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+3",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41698464/",
+    "doi_url": "https://doi.org/10.1016/j.cmi.2026.02.010"
+  },
+  {
+    "pmid": "41712219",
+    "title": "Treatment for Brain Metastases With Stereotactic Radiation vs Hippocampal-Avoidance Whole Brain Radiation: A Randomized Clinical Trial.",
+    "journal": "JAMA",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type_heuristic:clinical trial, phase iii=+4",
+      "near_term_keywords=+2",
+      "oncology_downweight=-2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41712219/",
+    "doi_url": "https://doi.org/10.1001/jama.2026.0076"
+  },
+  {
+    "pmid": "41706076",
+    "title": "Comparison of Sirolimus- vs Paclitaxel-Coated Balloon Angioplasty for Femoropopliteal Artery Disease: The SIRONA Randomized Noninferiority Trial.",
+    "journal": "J Am Coll Cardiol",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "article_type_heuristic:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706076/",
+    "doi_url": "https://doi.org/10.1016/j.jacc.2025.12.017"
+  },
+  {
+    "pmid": "41706075",
+    "title": "Effect of Baduanjin on Blood Pressure Among Individuals With High-Normal Blood Pressure: A Multicenter, Open-Label, Blinded-Outcome Randomized Controlled Trial.",
+    "journal": "J Am Coll Cardiol",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "article_type_heuristic:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41706075/",
+    "doi_url": "https://doi.org/10.1016/j.jacc.2026.01.014"
+  },
+  {
+    "pmid": "41705856",
+    "title": "\u0399dentification of SQ109 analogs with enhanced antimicrobial activity against methicillin-resistant",
+    "journal": "Antimicrob Agents Chemother",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41705856/",
+    "doi_url": "https://doi.org/10.1128/aac.01545-25"
+  },
+  {
+    "pmid": "41443253",
+    "title": "Cerebral Venous Thrombosis in Previously Healthy Patients with Cryptococcal Meningitis.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+2",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41443253/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf653"
+  },
+  {
+    "pmid": "41151607",
+    "title": "Establishment of a Cynomolgus Macaque Model for Human Adenovirus Type 55-Induced Respiratory Disease.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+1",
+      "basic_science_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41151607/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf542"
+  },
+  {
+    "pmid": "41071924",
+    "title": "The Gut as a Source of Infection for Fungal Pathogens: Increased Fecal Candida albicans Precedes Onset of Candida Late-Onset Sepsis in Very Preterm Infants.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+2",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Multicenter Study"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41071924/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiaf524"
+  },
+  {
+    "pmid": "41700320",
+    "title": "Impact of COVID-19 Monoclonal Antibody Therapy on Subsequent Vaccine-elicited SARS-CoV-2 Immune Responses.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+1",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41700320/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag091"
+  },
+  {
+    "pmid": "41222528",
+    "title": "Sex-Specific Microaxial Flow Pump Use and Outcomes in Infarct-Related Cardiogenic Shock in the DanGer Shock Trial.",
+    "journal": "J Am Coll Cardiol",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=1",
+      "article_type:randomized controlled trial=+4",
+      "near_term_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article",
+      "Randomized Controlled Trial",
+      "Multicenter Study"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41222528/",
+    "doi_url": "https://doi.org/10.1016/j.jacc.2025.09.019"
+  },
+  {
+    "pmid": "41713476",
+    "title": "Efficacy of ETVAX, a vaccine against enterotoxigenic Escherichia coli-positive diarrhoea in Gambian children: a double-blind, randomised, placebo-controlled, phase 2b trial.",
+    "journal": "Lancet Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 7,
+    "rule_score": 7,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "near_term_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41713476/",
+    "doi_url": "https://doi.org/10.1016/S1473-3099(25)00774-1"
+  },
+  {
+    "pmid": "41712406",
+    "title": "Test Performance of Expired Malaria Rapid Diagnostic Tests: A pilot diagnostic accuracy study conducted in Western Uganda.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41712406/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag105"
+  },
+  {
+    "pmid": "41716679",
+    "title": "Correction to: Optimizing the Use of Cabotegravir Plus Rilpivirine Long-acting Therapy in HIV Care: Evidence, Implementation, and Unanswered Questions.",
+    "journal": "Open Forum Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Published Erratum"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41716679/",
+    "doi_url": "https://doi.org/10.1093/ofid/ofag066"
+  },
+  {
+    "pmid": "41707170",
+    "title": "Perioperative Enfortumab Vedotin and Pembrolizumab in Bladder Cancer.",
+    "journal": "N Engl J Med",
+    "journal_group": "general_medicine_acute_care",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=1",
+      "article_type_heuristic:clinical trial, phase iii=+4",
+      "near_term_keywords=+1",
+      "oncology_downweight=-2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707170/",
+    "doi_url": "https://doi.org/10.1056/NEJMoa2511674"
+  },
+  {
+    "pmid": "41707108",
+    "title": "Plasma biomarkers of immunothrombosis are independently associated with death in patients with COVID-19 on ECMO.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+1",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707108/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag106"
+  },
+  {
+    "pmid": "41707096",
+    "title": "Risk factors for immunological sensitization to Mycobacterium tuberculosis and progression to incident TB disease among HIV-uninfected adults in a high burden setting.",
+    "journal": "J Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41707096/",
+    "doi_url": "https://doi.org/10.1093/infdis/jiag100"
+  },
+  {
+    "pmid": "41705852",
+    "title": "Differential targeting of human pyroptotic caspase-5 and caspase-4 by",
+    "journal": "mBio",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+1",
+      "basic_science_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": ">12 months",
+    "category": "Basic science to watch (>12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41705852/",
+    "doi_url": "https://doi.org/10.1128/mbio.03855-25"
+  },
+  {
+    "pmid": "41705834",
+    "title": "Pharmacokinetics, safety, and tolerability of an oxfendazole tablet formulation: a phase 1, randomized, placebo-controlled trial in healthy African volunteers.",
+    "journal": "Antimicrob Agents Chemother",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+1",
+      "id_keywords=+1",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41705834/",
+    "doi_url": "https://doi.org/10.1128/aac.01315-25"
+  },
+  {
+    "pmid": "41705828",
+    "title": "",
+    "journal": "Antimicrob Agents Chemother",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "near_term_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41705828/",
+    "doi_url": "https://doi.org/10.1128/aac.01549-25"
+  },
+  {
+    "pmid": "41705791",
+    "title": "Real-World Effectiveness of RSVpreF and RSVpreF3 Vaccines in Preventing Hospitalisation and Emergency Department Visits Associated with Respiratory Syncytial Virus in Older Adults: A Meta-Analysis.",
+    "journal": "Clin Infect Dis",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=2",
+      "group_bias=3",
+      "near_term_keywords=+3",
+      "id_keywords=+1",
+      "review_downweight=-3",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41705791/",
+    "doi_url": "https://doi.org/10.1093/cid/ciag107"
+  },
+  {
+    "pmid": "41704123",
+    "title": "Current infection control practices for multidrug-resistant organisms (MDRO): a survey of the Society for Healthcare Epidemiology of America (SHEA) research network and affiliated US-based hospitals.",
+    "journal": "Infect Control Hosp Epidemiol",
+    "journal_group": "infectious_diseases_microbiology_ipc",
+    "pub_date": "2026",
+    "score": 6,
+    "rule_score": 6,
+    "llm_score": 0,
+    "score_reasons": [
+      "journal_weight=1",
+      "group_bias=3",
+      "id_keywords=+2",
+      "llm_skipped:quota_exhausted"
+    ],
+    "translation_horizon": "0-12 months",
+    "category": "Clinical/Translational (0-12 months likely)",
+    "article_types": [
+      "Journal Article"
+    ],
+    "llm_enrichment": null,
+    "pubmed_url": "https://pubmed.ncbi.nlm.nih.gov/41704123/",
+    "doi_url": "https://doi.org/10.1017/ice.2025.10394"
+  }
+]

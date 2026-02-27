@@ -1,0 +1,54 @@
+{
+  "general_medicine_acute_care": [
+    {"name": "N Engl J Med", "tier": "top"},
+    {"name": "Lancet", "tier": "top"},
+    {"name": "JAMA", "tier": "top"},
+    {"name": "BMJ", "tier": "top"},
+    {"name": "Ann Intern Med", "tier": "top"},
+    {"name": "JAMA Intern Med", "tier": "high"},
+    {"name": "Lancet Respir Med", "tier": "high"},
+    {"name": "Lancet Diabetes Endocrinol", "tier": "high"},
+    {"name": "Lancet Gastroenterol Hepatol", "tier": "high"},
+    {"name": "Circulation", "tier": "high"},
+    {"name": "Eur Heart J", "tier": "high"},
+    {"name": "J Am Coll Cardiol", "tier": "high_selective"},
+    {"name": "Chest", "tier": "high"},
+    {"name": "Am J Respir Crit Care Med", "tier": "high"},
+    {"name": "Intensive Care Med", "tier": "high"},
+    {"name": "Crit Care", "tier": "high"},
+    {"name": "Anaesthesia", "tier": "high"},
+    {"name": "Br J Anaesth", "tier": "high"},
+    {"name": "Emerg Med J", "tier": "high"}
+  ],
+  "infectious_diseases_microbiology_ipc": [
+    {"name": "Lancet Infect Dis", "tier": "top"},
+    {"name": "Clin Infect Dis", "tier": "top"},
+    {"name": "J Infect Dis", "tier": "high"},
+    {"name": "Open Forum Infect Dis", "tier": "high"},
+    {"name": "Euro Surveill", "tier": "high"},
+    {"name": "Emerg Infect Dis", "tier": "high"},
+    {"name": "Clin Microbiol Infect", "tier": "high"},
+    {"name": "J Antimicrob Chemother", "tier": "high"},
+    {"name": "Antimicrob Agents Chemother", "tier": "high"},
+    {"name": "mBio", "tier": "high"},
+    {"name": "Infect Control Hosp Epidemiol", "tier": "high"}
+  ],
+  "basic_translational_infection_relevant": [
+    {"name": "Nature", "tier": "top_selective"},
+    {"name": "Science", "tier": "top_selective"},
+    {"name": "Cell", "tier": "top_selective"},
+    {"name": "Nat Med", "tier": "top"},
+    {"name": "Nat Microbiol", "tier": "top"},
+    {"name": "Nat Immunol", "tier": "top"},
+    {"name": "Cell Host Microbe", "tier": "top"},
+    {"name": "Immunity", "tier": "high"},
+    {"name": "Proc Natl Acad Sci U S A", "tier": "high_selective"},
+    {"name": "eLife", "tier": "high_selective"}
+  ],
+  "tier_weights": {
+    "top": 2,
+    "high": 1,
+    "top_selective": 1,
+    "high_selective": 1
+  }
+}

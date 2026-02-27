@@ -1,0 +1,755 @@
+{
+  "41718479": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41718479",
+      "why_it_matters_points": [
+        "Candida glabrata, responsible for 15%-25% of invasive candidiasis, actively delays its escape from macrophages, with host cells bursting after 2-3 days.",
+        "The fungal Ksp1 kinase was identified as a key regulator of this delay; its deletion accelerates macrophage cell lysis.",
+        "Loss of Ksp1 increases mitophagy and the formation of petites, a respiration-deficient phenotype associated with resistance to antifungals and phagocytic killing.",
+        "Deletion of KSP1 enhances resistance to multiple antifungals, suggesting a broader cross-adaptive survival strategy.",
+        "This prolonged intramacrophagal phase may contribute to immune evasion, antifungal resistance, and potential recurrence of infection."
+      ],
+      "headline_result": "The fungal Ksp1 kinase delays Candida glabrata's escape from macrophages, with its deletion accelerating host cell lysis and increasing antifungal resistance.",
+      "trial_n": "not reported",
+      "clinical_takeaway": [
+        "Understanding the mechanisms of C. glabrata's intracellular survival and delayed escape could inform new therapeutic strategies for persistent or recurrent candidiasis.",
+        "Targeting fungal kinases like Ksp1 or pathways related to petite formation might offer novel approaches to overcome antifungal resistance and improve immune clearance."
+      ],
+      "clinical_impact_12m": 1,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-22T19:38:14Z"
+  },
+  "41705856": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41705856",
+      "why_it_matters_points": [
+        "The rise of antimicrobial resistance, particularly MRSA, necessitates the development of novel antibacterial molecules.",
+        "This preclinical study evaluated SQ109 and 14 analogs for efficacy against methicillin-resistant Staphylococcus aureus (MRSA).",
+        "Analogs AK126 and AK127 exhibited the most potent antimicrobial activity with no detectable resistance development.",
+        "These analogs target the S. aureus membrane by disrupting the proton motive force and inducing membrane damage.",
+        "AK126 and AK127 also showed activity against S. aureus persister cells and synergized with gentamicin."
+      ],
+      "headline_result": "Analogs AK126 and AK127 demonstrated potent antimicrobial activity against MRSA by targeting the bacterial membrane, showing synergy with gentamicin, and without detectable resistance development.",
+      "trial_n": "not reported",
+      "clinical_takeaway": [
+        "AK126 and AK127 represent promising new scaffolds for the development of agents to combat difficult-to-treat MRSA infections.",
+        "Their mechanism of action, including membrane disruption and synergy with gentamicin, suggests potential for overcoming existing resistance mechanisms."
+      ],
+      "clinical_impact_12m": 0,
+      "method_quality": 3,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-22T19:42:08Z"
+  },
+  "41486473": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41486473",
+      "why_it_matters_points": [
+        "Post-infectious inflammatory response syndrome (PIIRS) is a recognized cause of neurologic deterioration in cryptococcal meningoencephalitis (CM).",
+        "This multicenter case series included 13 non-HIV immunosuppressed patients with CM who subsequently developed PIIRS.",
+        "Corticosteroid therapy was associated with significant improvements in Karnofsky scores at 1 month (P = .001), with sustained benefit at 6 and 12 months (P = .002).",
+        "All 10 surviving patients (out of 13) demonstrated resolution of neurological symptoms after corticosteroid therapy.",
+        "CSF inflammatory parameters and brain MRI findings also showed significant improvement with corticosteroid use."
+      ],
+      "headline_result": "Corticosteroid therapy significantly improved Karnofsky performance scores at 1 month (P = .001), with sustained benefit at 6 and 12 months (P = .002), and resolved neurological symptoms in all 10 surviving non-HIV immunosuppressed patients with cryptococcal meningitis-associated PIIRS.",
+      "trial_n": "n=13",
+      "clinical_takeaway": [
+        "Corticosteroids may be a beneficial treatment option for non-HIV immunosuppressed patients experiencing PIIRS secondary to cryptococcal meningitis, improving neurological and CSF outcomes.",
+        "Clinicians should be aware of potential adverse events, such as sepsis, when considering corticosteroid therapy in this immunocompromised patient group."
+      ],
+      "clinical_impact_12m": 2,
+      "method_quality": 1,
+      "novelty": 3,
+      "action": "discuss",
+      "translation_horizon": ">12 months",
+      "confidence": 0.5
+    },
+    "updated_at": "2026-02-22T19:42:30Z"
+  },
+  "41285172": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41285172",
+      "why_it_matters_points": [
+        "A new SARS-CoV-2 spike subunit vaccine (UQSC2) using a second-generation molecular clamp (MC2) was developed to avoid interference with HIV-1 diagnostic tests.",
+        "In a phase I randomized, double-blind trial (n=70), UQSC2 was evaluated as a booster in adults previously vaccinated with mRNA vaccines.",
+        "UQSC2 was as well tolerated as the active comparator NVX-CoV2373 (Novavax) and elicited comparable increases in neutralizing humoral responses against the Wuhan strain."
+      ],
+      "headline_result": "The UQSC2 vaccine was as well tolerated as the authorized comparator NVX-CoV2373 and produced comparable increases in neutralizing humoral responses against the prototypic Wuhan strain of SARS-CoV-2.",
+      "trial_n": "n=70 (35 per group)",
+      "clinical_takeaway": [
+        "UQSC2, a novel SARS-CoV-2 vaccine candidate, demonstrated a favorable safety profile and immunogenicity comparable to Novavax's Nuvaxovid as a booster dose.",
+        "The second-generation molecular clamp addresses a previous issue with HIV-1 diagnostic interference, potentially making this platform more viable for future vaccine development.",
+        "These early phase I results support further clinical development to assess efficacy, broader variant coverage, and long-term safety."
+      ],
+      "clinical_impact_12m": 2,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-22T20:20:40Z"
+  },
+  "41711453": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41711453",
+      "why_it_matters_points": [
+        "Solid organ transplant (SOT) recipients are at increased risk for severe RSV disease and lack specific vaccine options.",
+        "This interim phase 3 trial (n=150) found the mRNA-1345 RSV vaccine to be well tolerated and immunogenic in SOT recipients.",
+        "A single dose induced significant neutralizing antibody responses (4.9-fold for RSV-A, 3.4-fold for RSV-B by Day 29), with modest additional increases after a second dose."
+      ],
+      "headline_result": "The mRNA-1345 RSV vaccine was well tolerated and induced robust neutralizing antibody responses in solid organ transplant recipients, with a 4.9-fold increase in RSV-A and 3.4-fold increase in RSV-B nAb GMTs by Day 29 after one dose.",
+      "trial_n": "n=150",
+      "clinical_takeaway": [
+        "The mRNA-1345 RSV vaccine shows promise for preventing RSV in immunocompromised SOT recipients, a population with high unmet need.",
+        "A single dose appears to be immunogenic, with a second dose potentially offering additional benefit, especially in specific subgroups like kidney/lung transplant recipients.",
+        "The vaccine was well tolerated with no reported vaccine-related serious adverse events or transplant rejection."
+      ],
+      "clinical_impact_12m": 3,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-22T20:21:08Z"
+  },
+  "41289032": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41289032",
+      "why_it_matters_points": [
+        "Safe and effective vaccines are urgently needed to prevent Klebsiella pneumoniae infections, which this study addresses.",
+        "Kleb4V is the first K. pneumoniae conjugate vaccine candidate to reach clinical assessment, marking a significant step in vaccine development.",
+        "In this Phase I/II trial (n=166), Kleb4V was well tolerated and immunogenic for all four vaccine-serotypes, with AS03-adjuvanted formulations showing superior immune responses for three of four serotypes."
+      ],
+      "headline_result": "The tetravalent bioconjugate vaccine Kleb4V was well tolerated and immunogenic in healthy adults aged 18-70 years, with AS03-adjuvanted formulations showing superior immune responses for O1v1, O2a, and O2afg serotypes.",
+      "trial_n": "n=166",
+      "clinical_takeaway": [
+        "Kleb4V is a promising first-in-human K. pneumoniae conjugate vaccine candidate, demonstrating good safety and immunogenicity profiles.",
+        "The use of AS03 adjuvant significantly enhanced immune responses for most serotypes, suggesting its potential benefit in future formulations.",
+        "Further research is needed to optimize the O3b response and advance this vaccine candidate through later-phase clinical trials."
+      ],
+      "clinical_impact_12m": 1,
+      "method_quality": 4,
+      "novelty": 5,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-22T20:21:32Z"
+  },
+  "41711572": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41711572",
+      "why_it_matters_points": [
+        "ST11 is the predominant lineage of hypervirulent carbapenem-resistant Klebsiella pneumoniae (hv-CRKP) in China, with KL64 and KL25 as key capsular subtypes.",
+        "Among 190 ST11 isolates, KL64 accounted for 54.7% and KL25 for 45.3%, with KL25 showing increasing prevalence after 2021.",
+        "ST11-KL64 exhibited broader drug resistance and higher in vivo virulence, while ST11-KL25 demonstrated greater competitive fitness and biofilm formation."
+      ],
+      "headline_result": "Among ST11 hypervirulent carbapenem-resistant Klebsiella pneumoniae (hv-CRKP) isolates, KL64 (54.7%) and KL25 (45.3%) were the predominant capsular types, with ST11-KL64 showing broader drug resistance and higher in vivo virulence, while ST11-KL25 exhibited greater competitive fitness and biofilm formation.",
+      "trial_n": "n=239 hv-CRKP isolates, n=190 ST11 isolates",
+      "clinical_takeaway": [
+        "ST11-KL25 and ST11-KL64 are the predominant hv-CRKP subtypes in China, each with distinct epidemiological and phenotypic characteristics.",
+        "ST11-KL64 demonstrates broader resistance, including to ceftazidime-avibactam and polymyxin, and higher in vivo virulence.",
+        "ST11-KL25 appears to be a stable, colonization-adapted subtype with consistent resistance and moderate virulence, suggesting different adaptation strategies."
+      ],
+      "clinical_impact_12m": 2,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-22T20:22:30Z"
+  },
+  "41707171": {
+    "model": "gemini-2.5-flash",
+    "enrichment": {
+      "pmid": "41707171",
+      "why_it_matters_points": [
+        "Randomized trials of long-acting injectable antiretroviral therapy (ART) in persons with HIV who face challenges with adherence to oral medication were previously lacking.",
+        "In a randomized trial (n=306), cabotegravir plus rilpivirine demonstrated superiority over standard care, leading to early trial stoppage.",
+        "The cumulative incidence of regimen failure by week 48 was 22.8% in the overall randomized cohort, indicating a significant benefit for the long-acting regimen."
+      ],
+      "headline_result": "Long-acting injectable cabotegravir plus rilpivirine demonstrated superiority over standard oral ART in preventing regimen failure in persons with HIV facing adherence challenges, leading to early trial termination.",
+      "trial_n": "n=306 (randomized in step 2)",
+      "clinical_takeaway": [
+        "Long-acting injectable cabotegravir-rilpivirine offers a highly effective treatment option for persons with HIV who struggle with adherence to daily oral ART.",
+        "This regimen can significantly improve virologic outcomes in a population historically challenging to treat effectively.",
+        "The study reinforces the importance of initial adherence support and incentives to achieve viral suppression before transitioning to long-acting injectables."
+      ],
+      "clinical_impact_12m": 4,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-22T20:26:06Z"
+  },
+  "41071936": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41071936",
+      "why_it_matters_points": [
+        "This pilot randomized controlled trial investigated IVIG for BK DNAemia in renal transplant recipients.",
+        "IVIG treatment was found to be safe, but its impact on viral clearance was unclear, with 40% clearance in the treatment arm vs 44.4% in the control arm at 3 months.",
+        "Viral clearance was associated with higher baseline BKPyV-specific CD8+ T cells, suggesting a role for host immunity."
+      ],
+      "headline_result": "In a pilot study, 2 doses of IVIG were safe, but viral clearance rates at 3 months were similar between treatment (40%) and control (44.4%) arms.",
+      "trial_n": "not reported",
+      "clinical_takeaway": [
+        "IVIG appears safe for BK DNAemia in renal transplant recipients, but its efficacy in clearing DNAemia is not established by this pilot study.",
+        "Further larger trials are needed to determine the role of IVIG in managing BK DNAemia.",
+        "Baseline BKPyV-specific CD8+ T cells may predict viral clearance."
+      ],
+      "clinical_impact_12m": 1,
+      "method_quality": 4,
+      "novelty": 3,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:03:52Z"
+  },
+  "41254867": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41254867",
+      "why_it_matters_points": [
+        "CRISPR-Cas-associated SCCmec variants in MRSA can lead to false-negative results in rapid molecular diagnostic assays (Xpert, BCID2).",
+        "This misdiagnosis was observed in 2% of 2432 screened patients, specifically in clonal complex 5, a hospital-associated lineage.",
+        "11 of 40 SCCmec/junctions from these variants evaded detection by BCID2 or Xpert, posing a significant threat to diagnostic accuracy."
+      ],
+      "headline_result": "CRISPR-Cas-associated SCCmec variants in methicillin-resistant Staphylococcus aureus (MRSA) evaded detection by rapid molecular assays (BCID2 or Xpert) in 11 of 40 tested variants, leading to false-negative results in 2% of 2432 screened patients.",
+      "trial_n": "2432 screened patients, 45 patients with 64 variants identified, 11 of 40 SCCmec/junctions evaded detection",
+      "clinical_takeaway": [
+        "Clinicians should be aware of the potential for false-negative rapid MRSA diagnostic results, especially in hospital-associated MRSA (clonal complex 5).",
+        "Consider alternative diagnostic methods or phenotypic testing if clinical suspicion for MRSA remains high despite a negative rapid molecular test.",
+        "This highlights a novel mechanism of diagnostic evasion that could impact patient management and infection control strategies."
+      ],
+      "clinical_impact_12m": 4,
+      "method_quality": 4,
+      "novelty": 5,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:03:52Z"
+  },
+  "41063661": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41063661",
+      "why_it_matters_points": [
+        "Doxycycline has been proposed as a potential treatment or preventive measure for Trichomonas vaginalis.",
+        "This secondary analysis of a randomized controlled trial (n=449) investigated doxycycline postexposure prophylaxis (PEP) for T. vaginalis among cisgender women.",
+        "Doxycycline PEP did not significantly reduce T. vaginalis diagnoses compared to standard-of-care (RR: 0.96, 95% CI: 0.54-1.73, P = .9)."
+      ],
+      "headline_result": "Doxycycline postexposure prophylaxis did not significantly reduce incident Trichomonas vaginalis infections compared to standard-of-care (RR: 0.96, 95% CI: 0.54-1.73, P = .9).",
+      "trial_n": "n=449",
+      "clinical_takeaway": [
+        "Doxycycline PEP, in the context studied, does not appear to be effective for preventing T. vaginalis infections.",
+        "Further investigation is warranted to fully understand doxycycline's potential impact on T. vaginalis in other settings or dosages."
+      ],
+      "clinical_impact_12m": 1,
+      "method_quality": 4,
+      "novelty": 3,
+      "action": "watch",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T08:04:14Z"
+  },
+  "41057142": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41057142",
+      "why_it_matters_points": [
+        "Klebsiella pneumoniae is a significant opportunistic pathogen, with hypervirulent strains posing a growing public health threat.",
+        "This study investigated the role of the phospholipid transporter MlaFEDCB in K. pneumoniae virulence using in vitro and in vivo models.",
+        "Deletion of the mlaFEDCB gene cluster significantly prolonged survival in murine intraperitoneal infection (P = .0005) and reduced fimbriae synthesis and host cell adherence."
+      ],
+      "headline_result": "Deletion of the mlaFEDCB gene cluster in Klebsiella pneumoniae significantly prolonged survival in murine intraperitoneal infection models (P = .0005) by modulating fimbriae synthesis and stress-adaptive growth.",
+      "trial_n": "not reported",
+      "clinical_takeaway": [
+        "The MlaFEDCB phospholipid transporter plays a crucial role in K. pneumoniae virulence by regulating fimbriae synthesis and stress adaptation.",
+        "Targeting the MlaFEDCB pathway could represent a novel strategy for developing anti-virulence therapies against K. pneumoniae.",
+        "This research provides foundational insights into K. pneumoniae pathogenesis that may inform future drug development."
+      ],
+      "clinical_impact_12m": 1,
+      "method_quality": 3,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:04:14Z"
+  },
+  "41653933": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41653933",
+      "one_line_summary": "A phase 3 trial found that recombinant factor VIIa, despite slowing bleeding in acute spontaneous intracerebral hemorrhage, did not improve functional clinical outcomes at 180 days compared to placebo.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T19:59:26Z"
+  },
+  "41724329": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41724329",
+      "one_line_summary": "Carbapenemase-producing Klebsiella pneumoniae harboring virulence genes were identified in war-affected children from the Gaza Strip, indicating a critical public health concern for multidrug-resistant infections.",
+      "clinical_relevance_12m": 5,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:05:27Z"
+  },
+  "41712898": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41712898",
+      "one_line_summary": "The 2026 AHA/ACC guideline introduces new clinical categories for evaluating and managing acute pulmonary embolism in adults, aiming to enhance precision in prognosis and therapeutic decision-making.",
+      "clinical_relevance_12m": 5,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.95
+    },
+    "updated_at": "2026-02-23T08:05:27Z"
+  },
+  "41707138": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41707138",
+      "one_line_summary": "A phase 1-2 trial of delpacibart etedesiran, an antibody-oligonucleotide conjugate, shows promising safety and pharmacodynamic effects in patients with myotonic dystrophy type 1, targeting the underlying genetic cause.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": ">12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:05:27Z"
+  },
+  "41715985": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41715985",
+      "one_line_summary": "A multicenter French study reveals high 90-day mortality (49.6%) for cryptococcosis requiring ICU admission, with increasing cases in non-HIV patients and specific factors influencing prognosis.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:05:27Z"
+  },
+  "41711419": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41711419",
+      "one_line_summary": "Intrathecal isoniazid and dexamethasone therapy may improve functional outcomes in patients with tuberculous meningitis, warranting further validation in randomized controlled trials.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:05:50Z"
+  },
+  "41705828": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41705828",
+      "one_line_summary": "Aztreonam-avibactam shows high in vitro activity against carbapenem-resistant Enterobacterales, including MBL producers, offering a promising alternative as ceftazidime-avibactam resistance increases.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:05:50Z"
+  },
+  "41704123": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41704123",
+      "one_line_summary": "A survey reveals significant variation in infection control practices for multidrug-resistant organisms across US hospitals, highlighting barriers like staff training and lack of evidence-based eradication strategies.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T08:05:50Z"
+  },
+  "41720147": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41720147",
+      "one_line_summary": "The AURIS score, incorporating TPN, prior antifungal therapy, multifocal colonization, and urinary isolation, was developed and validated to predict candidaemia in C. auris-colonized ICU patients, outperforming the Candida score.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:05:50Z"
+  },
+  "41712219": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41712219",
+      "one_line_summary": "This randomized trial compares stereotactic radiation to hippocampal-avoidance whole brain radiation for patients with 5-20 brain metastases, assessing symptom severity and daily functioning.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:06:35Z"
+  },
+  "41711574": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41711574",
+      "one_line_summary": "Aminoglycosides synergistically enhance meropenem/vaborbactam activity against KPC-producing Klebsiella pneumoniae in an in vitro model, preventing resistance emergence.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:06:35Z"
+  },
+  "41711573": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41711573",
+      "one_line_summary": "The emergence of azithromycin-resistant extensively drug-resistant Salmonella Typhimurium in Taiwan, evolved from MDR strains, carries multiple resistance genes, necessitating genomic surveillance to track its spread and inform treatment.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:06:55Z"
+  },
+  "41706076": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41706076",
+      "one_line_summary": "This study compares sirolimus-coated and paclitaxel-coated balloon angioplasty for femoropopliteal artery disease, aiming to assess noninferiority of SCB given concerns about PCB mortality risk.",
+      "clinical_relevance_12m": 0,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:06:55Z"
+  },
+  "41706075": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41706075",
+      "one_line_summary": "Baduanjin, a traditional Chinese exercise, significantly reduced 24-hour systolic blood pressure over 52 weeks in individuals with high-normal blood pressure, suggesting a potential non-pharmacological intervention.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T08:07:18Z"
+  },
+  "41705852": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41705852",
+      "one_line_summary": "Shigella effectors differentially target human caspase-4 and caspase-5, key mediators of pyroptosis, by a specific domain, revealing bacterial strategies to evade host inflammatory cell death.",
+      "clinical_relevance_12m": 1,
+      "translation_horizon": ">12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:07:18Z"
+  },
+  "41705830": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41705830",
+      "one_line_summary": "A retrospective study suggests that oral cephalosporins may be effective for Enterobacterales bacteremia from a urinary source, even with cefazolin MICs up to 16 mcg/mL, challenging current breakpoints.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:07:18Z"
+  },
+  "41443253": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41443253",
+      "one_line_summary": "Cerebral venous sinus thrombosis (CVST) is a treatable complication in 5.6% of immunocompetent cryptococcal meningitis patients, with neurologic infection itself contributing to thrombotic risk, suggesting the need for vigilance.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T08:07:18Z"
+  },
+  "41151607": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41151607",
+      "one_line_summary": "This study establishes a cynomolgus macaque model for human adenovirus type 55-induced respiratory disease, providing a preclinical platform for evaluating vaccines and therapeutics.",
+      "clinical_relevance_12m": 1,
+      "translation_horizon": ">12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:07:38Z"
+  },
+  "41071924": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41071924",
+      "one_line_summary": "Increased fecal Candida albicans precedes Candida late-onset sepsis in very preterm infants, suggesting the gut is a significant source of infection and a potential target for intervention.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.95
+    },
+    "updated_at": "2026-02-23T08:07:38Z"
+  },
+  "41721520": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41721520",
+      "one_line_summary": "In hospitalized anthrax patients, pleural drainage is strongly associated with survival, particularly for inhalation anthrax, while laparotomy for peritonitis improves outcomes in ingestion anthrax.",
+      "clinical_relevance_12m": 5,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.98
+    },
+    "updated_at": "2026-02-23T08:07:38Z"
+  },
+  "41721519": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41721519",
+      "one_line_summary": "A multicenter study identified cirrhosis, immunocompromised status, age, and lymphopenia as independent predictors of 30-day mortality in Legionella pneumonia, with urinary antigen testing showing low sensitivity.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.97
+    },
+    "updated_at": "2026-02-23T08:07:38Z"
+  },
+  "41721101": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41721101",
+      "one_line_summary": "This randomized trial found that both colonoscopy and fecal immunochemical testing (FIT) increased the detection of early-stage colorectal cancer compared to usual care, without significantly altering overall CRC incidence.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T08:08:00Z"
+  },
+  "41712406": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41712406",
+      "one_line_summary": "A pilot study in Uganda suggests that malaria rapid diagnostic tests (mRDTs) may remain valid and consistent with non-expired tests for up to 9 months past their expiration date, potentially aiding resource-limited settings.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:08:00Z"
+  },
+  "41711564": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41711564",
+      "one_line_summary": "Pilabactam, a novel \u03b2-lactamase inhibitor in phase I trials, effectively restores meropenem activity against carbapenem-resistant Acinetobacter baumannii, including difficult-to-inhibit CHDLs, showing promise for future treatment options.",
+      "clinical_relevance_12m": 2,
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T08:08:00Z"
+  },
+  "41711434": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41711434",
+      "one_line_summary": "Pseudomonas aeruginosa persisters exhibit antibiotic tolerance linked to energy expenditure and cellular activity, with biofilm-like conditions and c-di-GMP production inducing low-translating, more tolerant cells, which could inform new therapeutic strategies.",
+      "clinical_relevance_12m": 1,
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T08:08:00Z"
+  },
+  "41716679": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41716679",
+      "one_line_summary": "This article is a published erratum correcting a previous paper on optimizing cabotegravir plus rilpivirine long-acting therapy in HIV care, ensuring accuracy of prior clinical guidance.",
+      "clinical_relevance_12m": 1,
+      "translation_horizon": "0-12 months",
+      "confidence": 1.0
+    },
+    "updated_at": "2026-02-23T08:08:18Z"
+  },
+  "41728941": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41728941",
+      "why_it_matters_points": [
+        "Carbapenem-resistant hypervirulent Klebsiella pneumoniae (CR-hvKP) poses a major challenge due to its drug resistance and hypervirulence.",
+        "This preclinical study in mice (n=not reported) demonstrated that eravacycline significantly reduced lung bacterial colonization (P < 0.01) in CR-hvKP pneumonia.",
+        "Eravacycline also attenuated lung injury and inflammatory responses, suppressing serum cytokine levels (IL-6, IL-1\\u03b2, MCP-1; P < 0.05) and STAT1 activation.",
+        "headline_result",
+        "trial_n",
+        "clinical_takeaway",
+        "clinical_impact_12m",
+        "method_quality",
+        "novelty",
+        "action",
+        "translation_horizon",
+        "confidence"
+      ],
+      "headline_result": "In a mouse model of CR-hvKP pneumonia, eravacycline significantly reduced lung bacterial colonization (P < 0.01) and suppressed inflammatory markers (P < 0.05).",
+      "trial_n": "not reported (mouse model)",
+      "clinical_takeaway": [
+        "Eravacycline shows promising in vivo activity against carbapenem-resistant hypervirulent Klebsiella pneumoniae in a mouse model.",
+        "The observed anti-inflammatory effects suggest potential benefits beyond direct antimicrobial action.",
+        "Further research, including human clinical trials, is necessary to evaluate these findings in patients."
+      ],
+      "clinical_impact_12m": 0,
+      "method_quality": 3,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T19:59:06Z"
+  },
+  "41729142": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41729142",
+      "one_line_summary": "This publication provides a concise overview of the 2026 Acute Pulmonary Embolism Guideline, offering a quick reference for clinical management.",
+      "clinical_relevance_12m": 5,
+      "translation_horizon": "0-12 months",
+      "confidence": 1.0
+    },
+    "updated_at": "2026-02-23T19:59:26Z"
+  },
+  "41728971": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41728971",
+      "one_line_summary": "A novel class A carbapenemase, CAE-1, was functionally characterized in carbapenem-resistant Pseudomonas aeruginosa, demonstrating its role in conferring resistance to multiple beta-lactam antibiotics, including carbapenems.",
+      "clinical_relevance_12m": 3,
+      "translation_horizon": ">12 months",
+      "confidence": 0.8
+    },
+    "updated_at": "2026-02-23T19:59:26Z"
+  },
+  "41655588": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41655588",
+      "why_it_matters_points": [
+        "Basilar artery occlusion is a severe stroke subtype with limited treatment options, especially beyond 4.5 hours.",
+        "The TRACE-5 trial (n=452) compared tenecteplase within 24 hours of symptom onset to standard medical treatment for basilar artery occlusion.",
+        "Tenecteplase significantly improved functional outcomes (mRS 0-1 or return to baseline) in 38% of patients compared to 29% in the standard treatment group (adjusted RR 1.50, p=0.014)."
+      ],
+      "headline_result": "Tenecteplase administered within 24 hours of symptom onset significantly improved functional outcomes in patients with basilar artery occlusion compared to standard medical treatment.",
+      "trial_n": "n=452",
+      "clinical_takeaway": [
+        "Intravenous tenecteplase (0.25 mg/kg) can be considered for patients with basilar artery occlusion up to 24 hours after symptom onset.",
+        "The safety profile, including symptomatic intracranial hemorrhage and mortality, was similar between tenecteplase and standard medical treatment groups.",
+        "This expands the therapeutic window for thrombolysis in a critical stroke population."
+      ],
+      "clinical_impact_12m": 4,
+      "method_quality": 4,
+      "novelty": 4,
+      "action": "implement_candidate",
+      "translation_horizon": "0-12 months",
+      "confidence": 0.9
+    },
+    "updated_at": "2026-02-23T20:35:11Z"
+  },
+  "41655584": {
+    "model": "gemini-2.5-flash",
+    "profile": "full",
+    "enrichment": {
+      "pmid": "41655584",
+      "why_it_matters_points": [
+        "Metabolic dysfunction-associated steatohepatitis (MASH) with fibrosis has a high unmet medical need for effective and safe therapies.",
+        "This phase 2 trial (n=84) evaluated the safety and tolerability of efimosfermin alfa, an FGF21 analogue, administered once monthly in MASH patients with F2 or F3 fibrosis.",
+        "Efimosfermin alfa was generally well tolerated, with most adverse events being mild or moderate gastrointestinal issues, supporting further development."
+      ],
+      "headline_result": "Efimosfermin alfa 300 mg once per month was generally well tolerated in patients with biopsy-confirmed MASH and F2 or F3 fibrosis over 24 weeks.",
+      "trial_n": "n=84",
+      "clinical_takeaway": [
+        "Efimosfermin alfa demonstrated a favorable safety and tolerability profile in this phase 2 study for MASH.",
+        "Gastrointestinal events were the most frequent adverse events but were transient and mild to moderate.",
+        "These positive safety results support the progression of efimosfermin alfa to larger phase 3 trials to assess efficacy in MASH-related fibrosis."
+      ],
+      "clinical_impact_12m": 2,
+      "method_quality": 3,
+      "novelty": 4,
+      "action": "watch",
+      "translation_horizon": ">12 months",
+      "confidence": 0.7
+    },
+    "updated_at": "2026-02-23T20:35:11Z"
+  },
+  "41725190": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41725190",
+      "one_line_summary": "A retrospective cohort study found no significant difference in treatment effectiveness for late or unknown duration syphilis between one dose versus three doses of benzathine penicillin G, or between three doses of BPG and doxycycline.",
+      "clinical_relevance_12m": 4,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.75
+    },
+    "updated_at": "2026-02-23T20:35:31Z"
+  },
+  "41725182": {
+    "model": "gemini-2.5-flash",
+    "profile": "lite",
+    "enrichment": {
+      "pmid": "41725182",
+      "one_line_summary": "Strong real-world evidence indicates that a single dose of benzathine penicillin G or a 28-day course of oral doxycycline is not inferior to three doses for treating late latent or syphilis of unknown duration.",
+      "clinical_relevance_12m": 5,
+      "translation_horizon": "0-12 months",
+      "confidence": 0.85
+    },
+    "updated_at": "2026-02-23T20:35:31Z"
+  }
+}
