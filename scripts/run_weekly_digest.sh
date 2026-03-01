@@ -36,10 +36,17 @@ PODCAST_PDF="${PODCAST_PDF:-1}"
 ESTIMATE_FIRST="${ESTIMATE_FIRST:-1}"
 AUTO_PROCEED="${AUTO_PROCEED:-0}"
 SEND_EMAIL="${SEND_EMAIL:-0}"
+NO_EMAIL="${NO_EMAIL:-0}"
 EMAIL_TO="${EMAIL_TO:-}"
 EMAIL_TO_FILE="${EMAIL_TO_FILE:-}"
 EMAIL_SUBJECT_PREFIX="${EMAIL_SUBJECT_PREFIX:-Weekly ID + General Medicine Digest}"
 EMAIL_PROVIDER="${EMAIL_PROVIDER:-smtp}"
+
+if [[ "$NO_EMAIL" == "1" ]]; then
+  SEND_EMAIL="0"
+fi
+
+echo "Email mode: SEND_EMAIL=$SEND_EMAIL (provider=${EMAIL_PROVIDER})"
 
 CMD=(
   python3 run_digest.py
@@ -144,4 +151,6 @@ if [[ "$SEND_EMAIL" == "1" ]]; then
     fi
     "${EMAIL_CMD[@]}"
   fi
+else
+  echo "Email sending disabled for this run."
 fi

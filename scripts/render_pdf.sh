@@ -111,6 +111,8 @@ run_pandoc_pdf() {
 \usepackage{fancyhdr}
 \AtBeginDocument{%
   \small
+  \setlength{\emergencystretch}{3em}
+  \sloppy
   \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
   \let\HrefOrig\href
   \renewcommand{\href}[2]{\HrefOrig{#1}{\textcolor{blue}{\uline{#2}}}}
@@ -130,6 +132,8 @@ EOF
 \usepackage{fancyhdr}
 \AtBeginDocument{%
   \small
+  \setlength{\emergencystretch}{3em}
+  \sloppy
   \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
   \let\HrefOrig\href
   \renewcommand{\href}[2]{\HrefOrig{#1}{\textcolor{blue}{\uline{#2}}}}

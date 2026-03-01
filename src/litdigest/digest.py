@@ -1166,11 +1166,13 @@ def write_outputs(articles: list[Article], output_dir: Path, as_of: dt.date, day
 
     top = articles[:40]
     core = select_core_digest(articles=articles, core_size=15)
+    core_pmids = {art.pmid for art in core}
+    extended = [art for art in top if art.pmid not in core_pmids]
     with md_path.open("w", encoding="utf-8") as handle:
         handle.write(f"# Weekly ID + General Medicine Literature Digest ({as_of.isoformat()})\n\n")
         handle.write(f"- Window: last {days} days\n")
         handle.write(f"- Core digest items: {len(core)}\n")
-        handle.write(f"- Extended digest items: {len(top)}\n")
+        handle.write(f"- Extended digest items: {len(extended)}\n")
         handle.write(f"- Estimated reading time: {summarize_reading_time(len(top))}\n\n")
 
         handle.write("## Core Digest (10-15 mins)\n\n")
@@ -1179,77 +1181,77 @@ def write_outputs(articles: list[Article], output_dir: Path, as_of: dt.date, day
             handle.write(f"{i}. **{title_display}**\n")
             handle.write("\n")
             handle.write(
-                f"   Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
-                f"{', llm +' + str(art.llm_score) if art.llm_score else ''} | Translation horizon: {art.translation_horizon}\n"
+                f"    Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
+                f"{', llm +' + str(art.llm_score) if art.llm_score else ''}) | Translation horizon: {art.translation_horizon}\n"
             )
             handle.write("\n")
             p_link = pubmed_link(art.pmid)
-            handle.write(f"   PubMed: [{p_link}]({p_link})\n")
+            handle.write(f"    PubMed: [{p_link}]({p_link})\n")
             handle.write("\n")
             if art.doi:
                 d_link = doi_link(art.doi)
-                handle.write(f"   DOI: [{d_link}]({d_link})\n")
+                handle.write(f"    DOI: [{d_link}]({d_link})\n")
             if art.article_types:
-                handle.write(f"   Type: {', '.join(art.article_types[:3])}\n")
+                handle.write(f"    Type: {', '.join(art.article_types[:3])}\n")
             handle.write("\n")    
             read_rec = ""
             if art.llm_enrichment:
                 trial_n = str(art.llm_enrichment.get("trial_n", "")).strip()
                 if trial_n:
-                    handle.write(f"   **Trial n:** {escape_markdown_inline(trial_n)}\n")
+                    handle.write(f"    **Trial n:** {escape_markdown_inline(trial_n)}\n")
 
                 why_points = art.llm_enrichment.get("why_it_matters_points")
                 if isinstance(why_points, list) and why_points:
-                    handle.write("\n   **Why it matters:**\n")
+                    handle.write("\n    **Why it matters:**\n")
                     for point in why_points:
                         txt = str(point).strip()
                         if txt:
-                            handle.write(f"   - {escape_markdown_inline(txt)}\n")
+                            handle.write(f"    - {escape_markdown_inline(txt)}\n")
                 elif art.llm_enrichment.get("why_this_matters"):
                     # Backward compatibility with older cache entries.
                     fallback = escape_markdown_inline(str(art.llm_enrichment["why_this_matters"]))
-                    handle.write(f"\n   **Why it matters:** {fallback}\n")
+                    handle.write(f"\n    **Why it matters:** {fallback}\n")
                 else:
                     lite_summary = str(art.llm_enrichment.get("one_line_summary", "")).strip()
                     if lite_summary:
-                        handle.write(f"\n   **Why it matters:** {escape_markdown_inline(lite_summary)}\n")
+                        handle.write(f"\n    **Why it matters:** {escape_markdown_inline(lite_summary)}\n")
                 handle.write("\n")        
                 headline_result = str(art.llm_enrichment.get("headline_result", "")).strip()
                 if headline_result:
-                    handle.write(f"   **Headline result:** {escape_markdown_inline(headline_result)}\n")
+                    handle.write(f"    **Headline result:** {escape_markdown_inline(headline_result)}\n")
                 read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
             takeaways = art.llm_enrichment.get("clinical_takeaway") if art.llm_enrichment else None
             if isinstance(takeaways, list) and takeaways:
-                handle.write("\n   **Clinical takeaway:**\n")
+                handle.write("\n    **Clinical takeaway:**\n")
                 for takeaway in takeaways:
                     txt = str(takeaway).strip()
                     if txt:
-                        handle.write(f"   - {escape_markdown_inline(txt)}\n")
+                        handle.write(f"    - {escape_markdown_inline(txt)}\n")
             if read_rec:
-                handle.write(f"\n   **Read priority:** {escape_markdown_inline(read_rec)}\n")
+                handle.write(f"\n    **Read priority:** {escape_markdown_inline(read_rec)}\n")
             handle.write("\n---\n\n")
 
         handle.write("## Extended Digest (up to 60 minutes)\n\n")
-        for i, art in enumerate(top, start=1):
+        for i, art in enumerate(extended, start=1):
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
             handle.write(
-                f"   Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''})\n"
             )
-            handle.write(f"   Journal group: {art.journal_group}\n")
+            handle.write(f"    Journal group: {art.journal_group}\n")
             p_link = pubmed_link(art.pmid)
-            handle.write(f"   PubMed: [{p_link}]({p_link})\n")
+            handle.write(f"    PubMed: [{p_link}]({p_link})\n")
             if art.doi:
                 d_link = doi_link(art.doi)
-                handle.write(f"   DOI: [{d_link}]({d_link})\n")
+                handle.write(f"    DOI: [{d_link}]({d_link})\n")
             if art.llm_enrichment:
                 lite_summary = str(art.llm_enrichment.get("one_line_summary", "")).strip()
                 if lite_summary:
-                    handle.write(f"   LLM note: {escape_markdown_inline(lite_summary)}\n")
+                    handle.write(f"    LLM note: {escape_markdown_inline(lite_summary)}\n")
                 read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
                 if read_rec:
-                    handle.write(f"   Read priority: {escape_markdown_inline(read_rec)}\n")
+                    handle.write(f"    Read priority: {escape_markdown_inline(read_rec)}\n")
             handle.write("\n---\n\n")
 
     payload = []
@@ -1363,7 +1365,7 @@ def run(
             as_of=end_date,
             core_size=max(1, podcast_max_items),
         )
-    return md_path, json_path, len(articles), enriched_count, llm_stats, podcast_path
+    return md_path, json_path, len(articles), enriched_count, llm_stats, podcast_path, len(pmids)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -1496,7 +1498,7 @@ def main(argv: list[str] | None = None) -> int:
         args.llm_lite_top_n = min(args.llm_lite_top_n, 10)
 
     try:
-        md_path, json_path, count, enriched_count, llm_stats, podcast_path = run(
+        md_path, json_path, count, enriched_count, llm_stats, podcast_path, retrieved_count = run(
             days=args.days,
             retmax=args.max_results,
             output_dir=output_dir,
@@ -1518,6 +1520,7 @@ def main(argv: list[str] | None = None) -> int:
             podcast_max_items=args.podcast_max_items,
         )
         print(textwrap.dedent(f"""
+        PubMed records retrieved: {retrieved_count} (cap: {args.max_results}, cap reached: {retrieved_count >= args.max_results})
         Generated digest with {count} scored items.
         LLM enriched items: {enriched_count}
         LLM target count: {llm_stats["target_count"]}
