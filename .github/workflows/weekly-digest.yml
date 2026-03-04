@@ -1,26 +1,69 @@
-name: Weekly Literature Digest
+name: Weekly Digest
 
 on:
   schedule:
-    - cron: "30 6 * * 5"
+    # Monday 07:00 UTC
+    - cron: "0 7 * * 1"
   workflow_dispatch:
 
 jobs:
-  digest:
+  run-digest:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+      BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
+      BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
+      EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+      AUTO_PROCEED: "1"
+      ESTIMATE_FIRST: "0"
+      SEND_EMAIL: "1"
+      EMAIL_PROVIDER: "brevo"
+      EMAIL_TO_FILE: "recipients.txt"
+      MAX_RESULTS: "200"
+      PODCAST_SOURCE: "1"
+      PODCAST_PDF: "1"
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
-      - name: Generate digest
-        env:
-          NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          python-version: "3.12"
+
+      - name: Install PDF Tooling
         run: |
-          python3 run_digest.py --days 7 --max-results 400 --llm-enrich --llm-top-n 0 --llm-batch-size 5 --llm-batch-delay-seconds 12
-      - name: Upload outputs
+          sudo apt-get update
+          sudo apt-get install -y pandoc tectonic perl
+
+      - name: Create Recipients File From Secret
+        run: |
+          if [ -z "${EMAIL_RECIPIENTS}" ]; then
+            echo "EMAIL_RECIPIENTS secret is empty." >&2
+            exit 1
+          fi
+          printf "%s\n" "${EMAIL_RECIPIENTS}" > recipients.txt
+          echo "Recipient count:"
+          grep -Ev '^\s*(#|$)' recipients.txt | wc -l
+
+      - name: Run Weekly Pipeline
+        run: |
+          chmod +x scripts/run_weekly_digest.sh scripts/render_pdf.sh
+          ./scripts/run_weekly_digest.sh
+
+      - name: Upload Outputs Artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-digest
-          path: outputs/*
+          name: digest-outputs-${{ github.run_id }}
+          path: |
+            outputs/*_digest.md
+            outputs/*_digest.pdf
+            outputs/*_digest.json
+            outputs/*_core_podcast_source.md
+            outputs/*_core_podcast_source.pdf
