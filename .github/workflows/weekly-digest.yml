@@ -39,7 +39,7 @@ jobs:
       - name: Install PDF Tooling
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc tectonic perl
+          sudo apt-get install -y pandoc texlive-xetex perl
 
       - name: Create Recipients File From Secret
         run: |
