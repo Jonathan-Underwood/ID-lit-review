@@ -195,7 +195,7 @@ def gemini_enrich_batch(
                 Title: {art.title[:400]}
                 Journal: {art.journal}
                 Publication types: {", ".join(art.article_types[:4])}
-                Abstract: {art.abstract[:3500]}
+                Abstract: {art.abstract[:5000]}
                 """
             ).strip()
         )
@@ -394,7 +394,7 @@ def gemini_enrich_batch(
         pmid = str(row.get("pmid", "")).strip()
         if not pmid:
             continue
-        out[pmid] = row
+        out[pmid] = sanitize_enrichment_row(row=row, profile=profile)
     if not out:
         raise LLMEnrichmentError("batch_response_no_valid_items")
     return out
@@ -471,6 +471,59 @@ def first(iterable: list[str]) -> str:
 
 def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def sanitize_list_field(value: Any, max_items: int, forbidden_tokens: set[str]) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        txt = str(item).strip()
+        if not txt:
+            continue
+        txt = re.sub(r"^\s*[-*•]+\s*", "", txt).strip()
+        norm = normalize(txt).strip(" :;,.")
+        if not norm or norm in forbidden_tokens or norm in seen:
+            continue
+        seen.add(norm)
+        out.append(txt)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]:
+    cleaned = dict(row)
+    forbidden_tokens = {
+        "pmid",
+        "why_it_matters_points",
+        "headline_result",
+        "trial_n",
+        "clinical_takeaway",
+        "read_recommendation",
+        "read_now",
+        "read_if_time",
+        "awareness_only",
+        "clinical_impact_12m",
+        "method_quality",
+        "novelty",
+        "action",
+        "translation_horizon",
+        "confidence",
+    }
+    if profile == "full":
+        cleaned["why_it_matters_points"] = sanitize_list_field(
+            value=cleaned.get("why_it_matters_points"),
+            max_items=3,
+            forbidden_tokens=forbidden_tokens,
+        )
+        cleaned["clinical_takeaway"] = sanitize_list_field(
+            value=cleaned.get("clinical_takeaway"),
+            max_items=3,
+            forbidden_tokens=forbidden_tokens,
+        )
+    return cleaned
 
 
 def format_read_recommendation(value: str) -> str:
@@ -1376,8 +1429,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--max-results",
         type=int,
-        default=200,
-        help="Maximum PubMed records to retrieve before scoring (default: 200).",
+        default=400,
+        help="Maximum PubMed records to retrieve before scoring (default: 400).",
     )
     parser.add_argument(
         "--output-dir",
