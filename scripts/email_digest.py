@@ -5,6 +5,7 @@ import argparse
 import base64
 import json
 import os
+import re
 import smtplib
 from email.message import EmailMessage
 from pathlib import Path
@@ -30,6 +31,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--markdown", required=True, help="Path to digest markdown file.")
     parser.add_argument("--pdf", help="Optional path to digest PDF attachment.")
     parser.add_argument(
+        "--body-mode",
+        choices=["summary", "full"],
+        default="summary",
+        help="Email body mode: concise summary (default) or full markdown body.",
+    )
+    parser.add_argument(
         "--smtp-timeout-seconds",
         type=float,
         default=20.0,
@@ -47,6 +54,30 @@ def parse_args() -> argparse.Namespace:
         help="Validate inputs and print email summary without sending.",
     )
     return parser.parse_args()
+
+
+def build_summary_body(markdown_text: str) -> str:
+    headline = "Weekly ID + General Medicine Literature Digest"
+    for line in markdown_text.splitlines():
+        if line.startswith("# "):
+            headline = line[2:].strip()
+            break
+
+    links = re.findall(r"https://pubmed\.ncbi\.nlm\.nih\.gov/\d+/?", markdown_text)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for link in links:
+        if link in seen:
+            continue
+        seen.add(link)
+        deduped.append(link)
+
+    lines = [headline, "", "PubMed links:"]
+    if deduped:
+        lines.extend([f"- {link}" for link in deduped])
+    else:
+        lines.append("- None found")
+    return "\n".join(lines)
 
 
 def load_recipients(args: argparse.Namespace) -> list[str]:
@@ -166,7 +197,8 @@ def main() -> int:
     md_path = Path(args.markdown)
     if not md_path.exists():
         raise SystemExit(f"Markdown file not found: {md_path}")
-    body = md_path.read_text(encoding="utf-8")
+    markdown_text = md_path.read_text(encoding="utf-8")
+    body = markdown_text if args.body_mode == "full" else build_summary_body(markdown_text)
 
     pdf_path: Path | None = None
     if args.pdf:
@@ -183,6 +215,7 @@ def main() -> int:
             print(f"To file: {args.to_file}")
             print(f"Recipient count: {len(recipients)}")
         print(f"Subject: {args.subject}")
+        print(f"Body mode: {args.body_mode}")
         print(f"Markdown: {md_path}")
         print(f"PDF: {args.pdf if args.pdf else 'none'}")
         return 0
