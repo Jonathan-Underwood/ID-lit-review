@@ -9,7 +9,7 @@ on:
 jobs:
   run-digest:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     env:
       NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
@@ -23,7 +23,14 @@ jobs:
       SEND_EMAIL: "1"
       EMAIL_PROVIDER: "brevo"
       EMAIL_TO_FILE: "recipients.txt"
-      MAX_RESULTS: "200"
+      MAX_RESULTS: "400"
+      LLM_CORE_TOP_N: "10"
+      LLM_LITE_TOP_N: "10"
+      LLM_BATCH_SIZE: "1"
+      LLM_LITE_BATCH_SIZE: "2"
+      LLM_BATCH_DELAY_SECONDS: "20"
+      LLM_MAX_REQUESTS: "20"
+      LLM_MIN_SUCCESS_RATE: "0.70"
       PODCAST_SOURCE: "1"
       PODCAST_PDF: "1"
 
