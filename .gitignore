@@ -1,5 +1,6 @@
 .env
 .env.local
 recipients.txt
+outputs/
 __pycache__/
 *.pyc
