@@ -1212,7 +1212,13 @@ def write_podcast_source(
     return path
 
 
-def write_outputs(articles: list[Article], output_dir: Path, as_of: dt.date, days: int) -> tuple[Path, Path]:
+def write_outputs(
+    articles: list[Article],
+    output_dir: Path,
+    as_of: dt.date,
+    days: int,
+    llm_stats: dict[str, Any] | None = None,
+) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     md_path = output_dir / f"{as_of.isoformat()}_digest.md"
     json_path = output_dir / f"{as_of.isoformat()}_digest.json"
@@ -1227,6 +1233,13 @@ def write_outputs(articles: list[Article], output_dir: Path, as_of: dt.date, day
         handle.write(f"- Core digest items: {len(core)}\n")
         handle.write(f"- Extended digest items: {len(extended)}\n")
         handle.write(f"- Estimated reading time: {summarize_reading_time(len(top))}\n\n")
+        if llm_stats:
+            target = int(llm_stats.get("target_count", 0))
+            enriched = int(llm_stats.get("enriched_count", 0))
+            pct = (enriched / target * 100.0) if target else 0.0
+            handle.write(
+                f"- LLM summary success: {pct:.1f}% ({enriched}/{target})\n\n"
+            )
 
         handle.write("## Core Digest (10-15 mins)\n\n")
         for i, art in enumerate(core, start=1):
@@ -1409,7 +1422,13 @@ def run(
         raise RuntimeError(
             f"LLM success rate {llm_stats['success_rate']:.2f} below minimum {llm_min_success_rate:.2f}"
         )
-    md_path, json_path = write_outputs(articles, output_dir=output_dir, as_of=end_date, days=days)
+    md_path, json_path = write_outputs(
+        articles,
+        output_dir=output_dir,
+        as_of=end_date,
+        days=days,
+        llm_stats=llm_stats if llm_enrich else None,
+    )
     podcast_path = None
     if podcast_source:
         podcast_path = write_podcast_source(
