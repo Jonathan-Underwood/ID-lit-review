@@ -63,18 +63,33 @@ def build_summary_body(markdown_text: str) -> str:
             headline = line[2:].strip()
             break
 
-    links = re.findall(r"https://pubmed\.ncbi\.nlm\.nih\.gov/\d+/?", markdown_text)
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for link in links:
-        if link in seen:
-            continue
-        seen.add(link)
-        deduped.append(link)
+    entries: list[tuple[str, str]] = []
+    seen_urls: set[str] = set()
+    current_title = ""
+    title_pat = re.compile(r"^\s*\d+\.\s+\*\*(.+?)\*\*\s*$")
+    pubmed_pat = re.compile(r"https://pubmed\.ncbi\.nlm\.nih\.gov/\d+/?")
 
-    lines = [headline, "", "PubMed links:"]
-    if deduped:
-        lines.extend([f"- {link}" for link in deduped])
+    for raw in markdown_text.splitlines():
+        line = raw.strip()
+        title_match = title_pat.match(line)
+        if title_match:
+            current_title = title_match.group(1).strip()
+            continue
+        if "PubMed:" not in line:
+            continue
+        url_match = pubmed_pat.search(line)
+        if not url_match:
+            continue
+        url = url_match.group(0)
+        if url in seen_urls:
+            continue
+        seen_urls.add(url)
+        title = current_title or "Untitled paper"
+        entries.append((title, url))
+
+    lines = [headline, "", "Key papers (title + PubMed):"]
+    if entries:
+        lines.extend([f"- {title} — {url}" for title, url in entries])
     else:
         lines.append("- None found")
     return "\n".join(lines)
