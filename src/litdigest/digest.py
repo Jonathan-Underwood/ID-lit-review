@@ -1418,6 +1418,21 @@ def run(
         llm_batch_delay_seconds=llm_batch_delay_seconds,
         llm_max_requests=llm_max_requests,
     )
+
+    # Add display-oriented LLM breakdown so "missing" enriched papers are traceable.
+    top = articles[:40]
+    core = select_core_digest(articles=articles, core_size=15)
+    core_pmids = {art.pmid for art in core}
+    extended = [art for art in top if art.pmid not in core_pmids]
+    llm_stats["core_enriched_count"] = sum(1 for art in core if art.llm_enrichment)
+    llm_stats["extended_enriched_count"] = sum(1 for art in extended if art.llm_enrichment)
+    llm_stats["extended_enriched_pmids"] = [art.pmid for art in extended if art.llm_enrichment]
+    llm_stats["quota_429_count"] = sum(
+        count
+        for key, count in (llm_stats.get("error_counts", {}) or {}).items()
+        if key.startswith("llm_error:http_429")
+    )
+
     if llm_enrich and llm_min_success_rate > 0 and llm_stats["success_rate"] < llm_min_success_rate:
         raise RuntimeError(
             f"LLM success rate {llm_stats['success_rate']:.2f} below minimum {llm_min_success_rate:.2f}"
@@ -1596,6 +1611,8 @@ def main(argv: list[str] | None = None) -> int:
         Generated digest with {count} scored items.
         LLM enriched items: {enriched_count}
         LLM target count: {llm_stats["target_count"]}
+        LLM enriched in core shown section: {llm_stats.get("core_enriched_count", 0)}
+        LLM enriched in extended section: {llm_stats.get("extended_enriched_count", 0)}
         LLM failed count: {llm_stats["failed_count"]}
         LLM success rate: {llm_stats["success_rate"]}
         LLM requests used: {llm_stats["requests_used"]}
