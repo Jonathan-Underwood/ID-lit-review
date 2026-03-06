@@ -6,6 +6,10 @@ on:
     - cron: "30 8 * * 5"
   workflow_dispatch:
 
+concurrency:
+  group: weekly-digest-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   run-digest:
     runs-on: ubuntu-latest
