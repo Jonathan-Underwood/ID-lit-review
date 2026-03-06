@@ -115,9 +115,9 @@
   "article_type_weights": {
     "randomized controlled trial": 4,
     "clinical trial, phase iii": 4,
-    "clinical trial, phase ii": 3,
-    "practice guideline": 4,
-    "guideline": 3,
+    "clinical trial, phase ii": 2,
+    "practice guideline": 2,
+    "guideline": 2,
     "meta-analysis": 3,
     "systematic review": 3
   }

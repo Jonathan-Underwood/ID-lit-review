@@ -408,9 +408,13 @@ def llm_priority_points(enrichment: dict[str, Any]) -> int:
     impact = int(enrichment.get("clinical_impact_12m", 0))
     quality = int(enrichment.get("method_quality", 0))
     novelty = int(enrichment.get("novelty", 0))
-    blended = (impact * 0.5) + (quality * 0.3) + (novelty * 0.2)
-    score_0_to_10 = int(round(blended * 2))
-    return max(0, min(5, score_0_to_10 // 2))
+    horizon = str(enrichment.get("translation_horizon", "")).strip()
+
+    # Weighted toward novelty + translation horizon, with smaller quality/impact contribution.
+    points = (novelty * 0.6) + (quality * 0.25) + (impact * 0.15)
+    if horizon == "0-12 months":
+        points += 1
+    return max(0, min(5, int(round(points))))
 
 
 def short_error(exc: Exception) -> str:
@@ -805,17 +809,18 @@ def apply_llm_enrichment(
         raise RuntimeError("`--llm-enrich` was set but GEMINI_API_KEY is missing.")
 
     cache = load_cache(llm_cache_path)
-    enriched_count = 0
+    enriched_pmids: set[str] = set()
     quota_exhausted = False
     max_requests_reached = False
     request_count = 0
 
     effective_core_n = llm_core_top_n if llm_core_top_n > 0 else llm_top_n
-    core_target = articles if effective_core_n <= 0 else articles[:effective_core_n]
+    core_target = select_core_digest(articles=articles, core_size=effective_core_n)
+    core_target_pmids = {art.pmid for art in core_target}
     lite_target: list[Article] = []
     if llm_lite_top_n > 0:
-        start = len(core_target)
-        lite_target = articles[start : start + llm_lite_top_n]
+        lite_candidates = [art for art in articles if art.pmid not in core_target_pmids]
+        lite_target = lite_candidates[:llm_lite_top_n]
 
     phase_defs: list[tuple[str, list[Article], int]] = [
         ("full", core_target, max(1, llm_batch_size)),
@@ -825,7 +830,7 @@ def apply_llm_enrichment(
     enrichment_by_pmid: dict[str, dict[str, Any]] = {}
 
     def run_phase(profile: str, phase_target: list[Article], batch_size: int) -> None:
-        nonlocal request_count, quota_exhausted, max_requests_reached, enriched_count
+        nonlocal request_count, quota_exhausted, max_requests_reached
         if not phase_target:
             return
         unresolved: list[Article] = []
@@ -888,7 +893,7 @@ def apply_llm_enrichment(
                     "enrichment": enrichment,
                     "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 }
-                enriched_count += 1
+                enriched_pmids.add(art.pmid)
 
     for profile, phase_target, phase_batch_size in phase_defs:
         if quota_exhausted or max_requests_reached:
@@ -914,6 +919,70 @@ def apply_llm_enrichment(
             art.translation_horizon = horizon
 
     articles.sort(key=lambda x: x.score, reverse=True)
+
+    # Ensure final core papers have full enrichment payload where possible.
+    final_core = select_core_digest(articles=articles, core_size=min(15, len(articles)))
+    for art in final_core:
+        if has_full_enrichment_payload(art.llm_enrichment):
+            continue
+        cached = cache.get(art.pmid)
+        if (
+            isinstance(cached, dict)
+            and cached.get("model") == gemini_model
+            and str(cached.get("profile", "full")).strip() == "full"
+            and isinstance(cached.get("enrichment"), dict)
+        ):
+            enrichment = cached["enrichment"]
+            enrichment_by_pmid[art.pmid] = enrichment
+            art.llm_enrichment = enrichment
+            llm_pts = llm_priority_points(enrichment)
+            art.llm_score = llm_pts
+            art.score = art.rule_score + llm_pts
+            if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
+                art.score_reasons.append(f"llm_priority=+{llm_pts}")
+            enriched_pmids.add(art.pmid)
+            continue
+
+        if quota_exhausted or max_requests_reached:
+            break
+        if llm_max_requests > 0 and request_count >= llm_max_requests:
+            max_requests_reached = True
+            break
+        if request_count > 0 and llm_batch_delay_seconds > 0:
+            time.sleep(llm_batch_delay_seconds)
+        request_count += 1
+        try:
+            full_enrichment = gemini_enrich_batch(
+                batch=[art],
+                gemini_model=gemini_model,
+                gemini_api_key=gemini_api_key,
+                profile="full",
+            )
+            enrichment = full_enrichment.get(art.pmid)
+            if not isinstance(enrichment, dict):
+                raise LLMEnrichmentError("missing_pmid_in_batch_response")
+            enrichment_by_pmid[art.pmid] = enrichment
+            art.llm_enrichment = enrichment
+            llm_pts = llm_priority_points(enrichment)
+            art.llm_score = llm_pts
+            art.score = art.rule_score + llm_pts
+            if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
+                art.score_reasons.append(f"llm_priority=+{llm_pts}")
+            cache[art.pmid] = {
+                "model": gemini_model,
+                "profile": "full",
+                "enrichment": enrichment,
+                "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+            }
+            enriched_pmids.add(art.pmid)
+        except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            err = short_error(exc)
+            art.score_reasons.append(f"llm_error:{err}")
+            if is_quota_error(exc):
+                quota_exhausted = True
+                break
+
+    articles.sort(key=lambda x: x.score, reverse=True)
     save_cache(llm_cache_path, cache)
     targeted = len(target)
     success_rate = (len(enrichment_by_pmid) / targeted) if targeted else 1.0
@@ -933,7 +1002,7 @@ def apply_llm_enrichment(
         "success_rate": round(success_rate, 3),
         "error_counts": error_counts,
     }
-    return articles, enriched_count, stats
+    return articles, len(enriched_pmids), stats
 
 
 def format_llm_diagnostic(llm_stats: dict[str, Any]) -> str:
@@ -995,10 +1064,12 @@ def estimate_llm_requests(
 ) -> dict[str, Any]:
     cache = load_cache(llm_cache_path)
     core_n = llm_core_top_n if llm_core_top_n > 0 else llm_top_n
-    core_target = articles if core_n <= 0 else articles[:core_n]
+    core_target = select_core_digest(articles=articles, core_size=core_n)
+    core_target_pmids = {art.pmid for art in core_target}
     lite_target: list[Article] = []
     if llm_lite_top_n > 0:
-        lite_target = articles[len(core_target): len(core_target) + llm_lite_top_n]
+        lite_candidates = [art for art in articles if art.pmid not in core_target_pmids]
+        lite_target = lite_candidates[:llm_lite_top_n]
     target = core_target + lite_target
 
     core_batch_size = max(1, llm_batch_size)
@@ -1082,18 +1153,23 @@ def summarize_reading_time(total_items: int) -> str:
     return "~60+ minutes"
 
 
+def has_full_enrichment_payload(enrichment: dict[str, Any] | None) -> bool:
+    if not isinstance(enrichment, dict):
+        return False
+    why = enrichment.get("why_it_matters_points")
+    takeaways = enrichment.get("clinical_takeaway")
+    headline = str(enrichment.get("headline_result", "")).strip()
+    if isinstance(why, list) and any(str(x).strip() for x in why):
+        return True
+    if isinstance(takeaways, list) and any(str(x).strip() for x in takeaways):
+        return True
+    return bool(headline)
+
+
 def select_core_digest(articles: list[Article], core_size: int = 15) -> list[Article]:
-    preferred_groups = {
-        "infectious_diseases_microbiology_ipc",
-        "general_medicine_acute_care",
-    }
-    preferred = [a for a in articles if a.journal_group in preferred_groups]
-    remaining = [a for a in articles if a.journal_group not in preferred_groups]
-    core = preferred[:core_size]
-    if len(core) < core_size:
-        needed = core_size - len(core)
-        core.extend(remaining[:needed])
-    return core
+    if core_size <= 0:
+        return []
+    return articles[:core_size]
 
 
 def parse_pubmed_records(root: ET.Element) -> dict[str, dict[str, Any]]:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import html
 import json
 import os
 import re
@@ -56,7 +57,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_summary_body(markdown_text: str) -> str:
+def extract_summary_entries(markdown_text: str) -> tuple[str, list[tuple[str, str]]]:
     headline = "Weekly ID + General Medicine Literature Digest"
     for line in markdown_text.splitlines():
         if line.startswith("# "):
@@ -87,12 +88,41 @@ def build_summary_body(markdown_text: str) -> str:
         title = current_title or "Untitled paper"
         entries.append((title, url))
 
+    return headline, entries
+
+
+def build_summary_body(markdown_text: str) -> str:
+    headline, entries = extract_summary_entries(markdown_text)
     lines = [headline, "", "Key papers (title + PubMed):"]
     if entries:
         lines.extend([f"- {title} — {url}" for title, url in entries])
     else:
         lines.append("- None found")
     return "\n".join(lines)
+
+
+def build_summary_html(markdown_text: str) -> str:
+    headline, entries = extract_summary_entries(markdown_text)
+    parts: list[str] = []
+    parts.append('<div style="font-family: Arial, Helvetica, sans-serif; font-size: 11pt; line-height: 1.4;">')
+    parts.append(f"<div><strong>{html.escape(headline)}</strong></div>")
+    parts.append("<div style=\"margin-top: 8px; margin-bottom: 6px;\"><strong>Key papers (title + PubMed):</strong></div>")
+    if entries:
+        parts.append('<ul style="margin-top: 0; padding-left: 18px;">')
+        for title, url in entries:
+            safe_title = html.escape(title)
+            safe_url = html.escape(url)
+            parts.append(
+                "<li style=\"margin-bottom: 8px;\">"
+                f"<strong>{safe_title}</strong><br>"
+                f"<a href=\"{safe_url}\" style=\"color: #0563c1; text-decoration: underline;\">{safe_url}</a>"
+                "</li>"
+            )
+        parts.append("</ul>")
+    else:
+        parts.append("<div>- None found</div>")
+    parts.append("</div>")
+    return "\n".join(parts)
 
 
 def load_recipients(args: argparse.Namespace) -> list[str]:
@@ -112,12 +142,16 @@ def load_recipients(args: argparse.Namespace) -> list[str]:
     return recipients
 
 
-def send_via_smtp(args: argparse.Namespace, recipient: str, body: str, pdf_path: Path | None) -> None:
+def send_via_smtp(
+    args: argparse.Namespace, recipient: str, body: str, html_body: str | None, pdf_path: Path | None
+) -> None:
     msg = EmailMessage()
     msg["Subject"] = args.subject
     msg["From"] = os.getenv("SMTP_FROM", os.getenv("SMTP_USER", "unset-from"))
     msg["To"] = recipient
     msg.set_content(body)
+    if html_body:
+        msg.add_alternative(html_body, subtype="html")
 
     if pdf_path is not None:
         msg.add_attachment(
@@ -161,7 +195,9 @@ def send_via_smtp(args: argparse.Namespace, recipient: str, body: str, pdf_path:
             server.send_message(msg)
 
 
-def send_via_brevo(args: argparse.Namespace, recipient: str, body: str, pdf_path: Path | None) -> None:
+def send_via_brevo(
+    args: argparse.Namespace, recipient: str, body: str, html_body: str | None, pdf_path: Path | None
+) -> None:
     api_key = os.getenv("BREVO_API_KEY")
     sender_email = os.getenv("BREVO_SENDER_EMAIL")
     sender_name = os.getenv("BREVO_SENDER_NAME", "")
@@ -177,6 +213,8 @@ def send_via_brevo(args: argparse.Namespace, recipient: str, body: str, pdf_path
         "subject": args.subject,
         "textContent": body,
     }
+    if html_body:
+        payload["htmlContent"] = html_body
     if pdf_path is not None:
         payload["attachment"] = [
             {
@@ -214,6 +252,7 @@ def main() -> int:
         raise SystemExit(f"Markdown file not found: {md_path}")
     markdown_text = md_path.read_text(encoding="utf-8")
     body = markdown_text if args.body_mode == "full" else build_summary_body(markdown_text)
+    html_body = None if args.body_mode == "full" else build_summary_html(markdown_text)
 
     pdf_path: Path | None = None
     if args.pdf:
@@ -237,9 +276,9 @@ def main() -> int:
 
     for recipient in recipients:
         if args.provider == "brevo":
-            send_via_brevo(args=args, recipient=recipient, body=body, pdf_path=pdf_path)
+            send_via_brevo(args=args, recipient=recipient, body=body, html_body=html_body, pdf_path=pdf_path)
         else:
-            send_via_smtp(args=args, recipient=recipient, body=body, pdf_path=pdf_path)
+            send_via_smtp(args=args, recipient=recipient, body=body, html_body=html_body, pdf_path=pdf_path)
         print(f"Digest sent to {recipient}")
     return 0
 
