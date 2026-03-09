@@ -30,7 +30,7 @@ jobs:
       EMAIL_TO_FILE: "recipients.txt"
       MAX_RESULTS: "400"
       LLM_CORE_TOP_N: "15"
-      LLM_LITE_TOP_N: "20"
+      LLM_LITE_TOP_N: "25"
       LLM_BATCH_SIZE: "1"
       LLM_LITE_BATCH_SIZE: "10"
       LLM_BATCH_DELAY_SECONDS: "20"
