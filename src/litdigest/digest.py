@@ -410,11 +410,12 @@ def llm_priority_points(enrichment: dict[str, Any]) -> int:
     novelty = int(enrichment.get("novelty", 0))
     horizon = str(enrichment.get("translation_horizon", "")).strip()
 
-    # Weighted toward novelty + translation horizon, with smaller quality/impact contribution.
-    points = (novelty * 0.6) + (quality * 0.25) + (impact * 0.15)
+    # Skew toward novelty + clinical impact, with small method-quality influence.
+    # Translation horizon is only a light tie-breaker.
+    points = (novelty * 0.55) + (impact * 0.35) + (quality * 0.10)
     if horizon == "0-12 months":
-        points += 1
-    return max(0, min(4, int(round(points))))
+        points += 0.25
+    return max(0, min(3, int(round(points))))
 
 
 def short_error(exc: Exception) -> str:
