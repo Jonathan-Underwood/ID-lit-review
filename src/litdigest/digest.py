@@ -414,7 +414,7 @@ def llm_priority_points(enrichment: dict[str, Any]) -> int:
     points = (novelty * 0.6) + (quality * 0.25) + (impact * 0.15)
     if horizon == "0-12 months":
         points += 1
-    return max(0, min(5, int(round(points))))
+    return max(0, min(4, int(round(points))))
 
 
 def short_error(exc: Exception) -> str:
