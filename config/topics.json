@@ -112,6 +112,7 @@
   ],
   "oncology_downweight": 2,
   "review_downweight": 3,
+  "commentary_downweight": 2,
   "article_type_weights": {
     "randomized controlled trial": 4,
     "clinical trial, phase iii": 4,

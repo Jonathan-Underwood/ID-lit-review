@@ -708,6 +708,12 @@ def score_article(
         score -= penalty
         reasons.append(f"review_downweight=-{penalty}")
 
+    commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment|letter)\b", t)]
+    if commentary_types:
+        penalty = int(topic_config.get("commentary_downweight", 2))
+        score -= penalty
+        reasons.append(f"commentary_downweight=-{penalty}")
+
     category = pick_category(haystack, topic_config)
     return score, reasons, category
 
