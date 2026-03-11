@@ -123,7 +123,7 @@
   "letter_downweight": 4,
   "erratum_downweight": 6,
   "article_type_weights": {
-    "randomized controlled trial": 4,
+    "randomized controlled trial": 5,
     "clinical trial, phase iii": 4,
     "clinical trial, phase ii": 2,
     "practice guideline": 2,
