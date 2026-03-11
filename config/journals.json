@@ -48,7 +48,7 @@
   "tier_weights": {
     "top": 2,
     "high": 1,
-    "top_selective": 1,
+    "top_selective": 2,
     "high_selective": 1
   }
 }

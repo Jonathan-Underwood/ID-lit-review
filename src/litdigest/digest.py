@@ -689,7 +689,7 @@ def score_article(
         score += add
         reasons.append(f"id_keywords=+{add}")
     if basic_hits:
-        add = min(2, len(basic_hits))
+        add = min(3, len(basic_hits))
         score += add
         reasons.append(f"basic_science_keywords=+{add}")
 
