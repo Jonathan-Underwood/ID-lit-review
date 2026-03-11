@@ -749,6 +749,13 @@ def parse_articles(
     journal_groups: dict[str, str],
 ) -> list[Article]:
     rows: list[Article] = []
+    excluded_pub_types = {
+        "review",
+        "comment",
+        "published erratum",
+        "editorial",
+        "letter",
+    }
     for article in root.findall(".//PubmedArticle"):
         pmid = text_or_empty(article.find(".//PMID"))
         title = collapse_whitespace(text_with_children(article.find(".//ArticleTitle")))
@@ -767,6 +774,9 @@ def parse_articles(
 
         article_types = [text_or_empty(t) for t in article.findall(".//PublicationType")]
         article_types = [t for t in article_types if t]
+        lower_types = {t.lower() for t in article_types}
+        if lower_types.intersection(excluded_pub_types):
+            continue
         linked_comment_pmids = collect_linked_comment_pmids(article)
 
         doi = None
