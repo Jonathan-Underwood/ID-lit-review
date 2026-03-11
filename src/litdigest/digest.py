@@ -697,15 +697,18 @@ def score_article(
     ]
     basic_hits = [kw for kw in topic_config["important_basic_science_keywords"] if kw in haystack]
     if near_hits:
-        add = min(4, len(near_hits))
+        near_cap = int(topic_config.get("near_term_keywords_cap", 4))
+        add = min(near_cap, len(near_hits))
         score += add
         reasons.append(f"near_term_keywords=+{add}")
     if id_hits:
-        add = min(6, len(id_hits))
+        id_cap = int(topic_config.get("id_keywords_cap", 6))
+        add = min(id_cap, len(id_hits))
         score += add
         reasons.append(f"id_keywords=+{add}")
     if basic_hits:
-        add = min(3, len(basic_hits))
+        basic_cap = int(topic_config.get("basic_science_keywords_cap", 3))
+        add = min(basic_cap, len(basic_hits))
         score += add
         reasons.append(f"basic_science_keywords=+{add}")
 
@@ -1483,6 +1486,43 @@ def write_outputs(
     return md_path, json_path
 
 
+def write_run_summary(
+    output_dir: Path,
+    as_of: dt.date,
+    *,
+    retrieved_count: int,
+    scored_count: int,
+    llm_enabled: bool,
+    llm_stats: dict[str, Any] | None,
+) -> Path:
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"{as_of.isoformat()}_run_summary.json"
+    payload: dict[str, Any] = {
+        "date": as_of.isoformat(),
+        "retrieved_count": retrieved_count,
+        "scored_count": scored_count,
+        "llm_enabled": llm_enabled,
+        "generated_at_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+    }
+    if llm_stats:
+        payload["llm"] = {
+            "estimate": llm_stats.get("estimate", {}),
+            "actual": {
+                "target_count": llm_stats.get("target_count", 0),
+                "enriched_count": llm_stats.get("enriched_count", 0),
+                "failed_count": llm_stats.get("failed_count", 0),
+                "success_rate": llm_stats.get("success_rate", 0.0),
+                "requests_used": llm_stats.get("requests_used", 0),
+                "max_requests_reached": llm_stats.get("max_requests_reached", False),
+                "quota_exhausted": llm_stats.get("quota_exhausted", False),
+                "error_counts": llm_stats.get("error_counts", {}),
+            },
+        }
+    with path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+    return path
+
+
 def run(
     days: int,
     retmax: int,
@@ -1503,7 +1543,7 @@ def run(
     llm_output_tokens_per_paper_estimate: int,
     podcast_source: bool,
     podcast_max_items: int,
-) -> tuple[Path, Path, int, int, dict[str, Any], Path | None]:
+) -> tuple[Path, Path, Path, int, int, dict[str, Any], Path | None, int]:
     journal_config = load_json(config_dir / "journals.json")
     topic_config = load_json(config_dir / "topics.json")
 
@@ -1540,6 +1580,20 @@ def run(
             "LLM_REQUEST_ESTIMATE:"
             + json.dumps(req_stats)
         )
+    preflight_estimate: dict[str, Any] = {}
+    if llm_enrich:
+        preflight_estimate = estimate_llm_requests(
+            articles=articles,
+            llm_top_n=llm_top_n,
+            llm_core_top_n=llm_core_top_n,
+            llm_lite_top_n=llm_lite_top_n,
+            llm_cache_path=llm_cache_path,
+            gemini_model=gemini_model,
+            llm_batch_size=llm_batch_size,
+            llm_lite_batch_size=llm_lite_batch_size,
+            llm_output_tokens_per_paper_estimate=llm_output_tokens_per_paper_estimate,
+        )
+
     articles, enriched_count, llm_stats = apply_llm_enrichment(
         articles=articles,
         enabled=llm_enrich,
@@ -1553,6 +1607,8 @@ def run(
         llm_batch_delay_seconds=llm_batch_delay_seconds,
         llm_max_requests=llm_max_requests,
     )
+    if llm_enrich:
+        llm_stats["estimate"] = preflight_estimate
 
     # Add display-oriented LLM breakdown so "missing" enriched papers are traceable.
     top = articles[:40]
@@ -1579,6 +1635,14 @@ def run(
         days=days,
         llm_stats=llm_stats if llm_enrich else None,
     )
+    summary_path = write_run_summary(
+        output_dir=output_dir,
+        as_of=end_date,
+        retrieved_count=len(pmids),
+        scored_count=len(articles),
+        llm_enabled=llm_enrich,
+        llm_stats=llm_stats if llm_enrich else None,
+    )
     podcast_path = None
     if podcast_source:
         podcast_path = write_podcast_source(
@@ -1587,7 +1651,7 @@ def run(
             as_of=end_date,
             core_size=max(1, podcast_max_items),
         )
-    return md_path, json_path, len(articles), enriched_count, llm_stats, podcast_path, len(pmids)
+    return md_path, json_path, summary_path, len(articles), enriched_count, llm_stats, podcast_path, len(pmids)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -1720,7 +1784,7 @@ def main(argv: list[str] | None = None) -> int:
         args.llm_lite_top_n = min(args.llm_lite_top_n, 10)
 
     try:
-        md_path, json_path, count, enriched_count, llm_stats, podcast_path, retrieved_count = run(
+        md_path, json_path, summary_path, count, enriched_count, llm_stats, podcast_path, retrieved_count = run(
             days=args.days,
             retmax=args.max_results,
             output_dir=output_dir,
@@ -1755,6 +1819,7 @@ def main(argv: list[str] | None = None) -> int:
         LLM quota exhausted: {llm_stats["quota_exhausted"]}
         Markdown: {md_path}
         JSON: {json_path}
+        Run summary: {summary_path}
         Podcast source: {podcast_path if podcast_path else "not generated"}
         """).strip())
         if args.llm_enrich:

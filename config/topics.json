@@ -123,6 +123,9 @@
   "commentary_downweight": 3,
   "letter_downweight": 4,
   "erratum_downweight": 6,
+  "near_term_keywords_cap": 4,
+  "id_keywords_cap": 6,
+  "basic_science_keywords_cap": 3,
   "article_type_weights": {
     "randomized controlled trial": 5,
     "clinical trial, phase iii": 4,

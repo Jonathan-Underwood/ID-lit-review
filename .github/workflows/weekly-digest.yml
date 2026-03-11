@@ -70,5 +70,6 @@ jobs:
             outputs/*_digest.md
             outputs/*_digest.pdf
             outputs/*_digest.json
+            outputs/*_run_summary.json
             outputs/*_core_podcast_source.md
             outputs/*_core_podcast_source.pdf
