@@ -115,6 +115,7 @@ run_pandoc_pdf() {
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
 \usepackage{fancyhdr}
+\usepackage{lastpage}
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
@@ -127,7 +128,7 @@ run_pandoc_pdf() {
   \pagestyle{fancy}
   \fancyhf{}
   \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
-  \fancyfoot[C]{\thepage}
+  \fancyfoot[R]{\scriptsize \thepage\ of \pageref{LastPage}}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
 }
@@ -137,6 +138,7 @@ EOF
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
 \usepackage{fancyhdr}
+\usepackage{lastpage}
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
@@ -149,7 +151,7 @@ EOF
   \pagestyle{fancy}
   \fancyhf{}
   \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
-  \fancyfoot[C]{\thepage}
+  \fancyfoot[R]{\scriptsize \thepage\ of \pageref{LastPage}}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
 }

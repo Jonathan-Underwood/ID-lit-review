@@ -708,11 +708,16 @@ def score_article(
         score -= penalty
         reasons.append(f"review_downweight=-{penalty}")
 
-    commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment)\b", t)]
+    commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment|commentary)\b", t)]
     if commentary_types:
         penalty = int(topic_config.get("commentary_downweight", 2))
         score -= penalty
         reasons.append(f"commentary_downweight=-{penalty}")
+
+    if (not commentary_types) and re.search(r"\bcommentary\b", haystack):
+        penalty = int(topic_config.get("commentary_downweight", 2))
+        score -= penalty
+        reasons.append(f"commentary_text_downweight=-{penalty}")
 
     letter_types = [t for t in lower_types if re.search(r"\bletter\b", t)]
     if letter_types:
@@ -757,6 +762,8 @@ def parse_articles(
         pub_date = year or medline or "Unknown"
 
         abstract = collect_abstract(article)
+        if not abstract:
+            continue
 
         article_types = [text_or_empty(t) for t in article.findall(".//PublicationType")]
         article_types = [t for t in article_types if t]
