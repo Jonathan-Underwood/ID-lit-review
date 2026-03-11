@@ -708,11 +708,30 @@ def score_article(
         score -= penalty
         reasons.append(f"review_downweight=-{penalty}")
 
-    commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment|letter)\b", t)]
+    commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment)\b", t)]
     if commentary_types:
         penalty = int(topic_config.get("commentary_downweight", 2))
         score -= penalty
         reasons.append(f"commentary_downweight=-{penalty}")
+
+    letter_types = [t for t in lower_types if re.search(r"\bletter\b", t)]
+    if letter_types:
+        penalty = int(topic_config.get("letter_downweight", 4))
+        score -= penalty
+        reasons.append(f"letter_downweight=-{penalty}")
+
+    erratum_types = [
+        t
+        for t in lower_types
+        if re.search(
+            r"\b(erratum|published erratum|correction|corrected and republished|retraction)\b",
+            t,
+        )
+    ]
+    if erratum_types:
+        penalty = int(topic_config.get("erratum_downweight", 6))
+        score -= penalty
+        reasons.append(f"erratum_downweight=-{penalty}")
 
     category = pick_category(haystack, topic_config)
     return score, reasons, category

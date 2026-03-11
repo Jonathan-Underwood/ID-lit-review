@@ -11,6 +11,12 @@ PDF_FILE="${MD_FILE%.md}.pdf"
 HTML_FILE="${MD_FILE%.md}.html"
 TMP_MD=""
 TMP_TEX_HEADER=""
+MD_BASENAME="$(basename "$MD_FILE")"
+RUN_DATE="$(echo "$MD_BASENAME" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})_.*$/\1/p')"
+if [[ -z "$RUN_DATE" ]]; then
+  RUN_DATE="$(date +%Y-%m-%d)"
+fi
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE} Jonathan Underwood v1.0 March 2026"
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
@@ -104,7 +110,7 @@ run_pandoc_pdf() {
   if [[ "$engine" == "tectonic" || "$engine" == "pdflatex" || "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
     TMP_TEX_HEADER="$(mktemp "${TMPDIR:-/tmp}/linkstyle.XXXXXX.tex")"
     if [[ "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
-      cat > "$TMP_TEX_HEADER" <<'EOF'
+      cat > "$TMP_TEX_HEADER" <<EOF
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
@@ -120,13 +126,14 @@ run_pandoc_pdf() {
   \renewcommand{\url}[1]{\textcolor{blue}{\uline{\nolinkurl{#1}}}}
   \pagestyle{fancy}
   \fancyhf{}
+  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
   \fancyfoot[C]{\thepage}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
 }
 EOF
     else
-      cat > "$TMP_TEX_HEADER" <<'EOF'
+      cat > "$TMP_TEX_HEADER" <<EOF
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
 \usepackage{fancyhdr}
@@ -141,6 +148,7 @@ EOF
   \renewcommand{\url}[1]{\textcolor{blue}{\uline{\nolinkurl{#1}}}}
   \pagestyle{fancy}
   \fancyhf{}
+  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
   \fancyfoot[C]{\thepage}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
