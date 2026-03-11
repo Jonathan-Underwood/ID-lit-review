@@ -625,9 +625,25 @@ def score_article(
     review_in_article_types = any(re.search(review_like_pattern, atype) for atype in lower_types)
     review_in_text = re.search(review_like_pattern, normalize(f"{title} {abstract}")) is not None
     is_review_like = review_in_article_types or review_in_text
+    article_type_variants: dict[str, list[str]] = {
+        "randomized controlled trial": [
+            "randomized controlled trial",
+            "randomised controlled trial",
+        ],
+        "meta-analysis": [
+            "meta-analysis",
+            "meta analysis",
+        ],
+        "practice guideline": [
+            "practice guideline",
+            "practise guideline",
+        ],
+    }
+
     matched_type_weights: list[tuple[str, int]] = []
     for key, weight in article_type_weights.items():
-        if any(key in atype for atype in lower_types):
+        variants = article_type_variants.get(key, [key])
+        if any(any(variant in atype for variant in variants) for atype in lower_types):
             matched_type_weights.append((key, int(weight)))
     if matched_type_weights:
         best_key, best_weight = max(matched_type_weights, key=lambda item: item[1])
