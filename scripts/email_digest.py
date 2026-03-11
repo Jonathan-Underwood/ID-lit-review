@@ -22,11 +22,15 @@ def parse_args() -> argparse.Namespace:
         default="smtp",
         help="Email transport provider (default: smtp).",
     )
-    recipients = parser.add_mutually_exclusive_group(required=True)
+    recipients = parser.add_mutually_exclusive_group(required=False)
     recipients.add_argument("--to", help="Recipient email address.")
     recipients.add_argument(
         "--to-file",
         help="Path to text file with one recipient email per line. Lines starting with # are ignored.",
+    )
+    recipients.add_argument(
+        "--brevo-list-id",
+        help="Brevo contact list ID to resolve recipients from (provider=brevo only).",
     )
     parser.add_argument("--subject", required=True, help="Email subject line.")
     parser.add_argument("--markdown", required=True, help="Path to digest markdown file.")
@@ -126,8 +130,64 @@ def build_summary_html(markdown_text: str) -> str:
 
 
 def load_recipients(args: argparse.Namespace) -> list[str]:
+    if args.brevo_list_id:
+        if args.provider != "brevo":
+            raise SystemExit("--brevo-list-id requires --provider brevo.")
+        api_key = os.getenv("BREVO_API_KEY")
+        if not api_key:
+            raise SystemExit("BREVO_API_KEY is required when using --brevo-list-id.")
+        list_id = str(args.brevo_list_id).strip()
+        if not list_id:
+            raise SystemExit("Invalid --brevo-list-id value.")
+        recipients: list[str] = []
+        seen: set[str] = set()
+        offset = 0
+        limit = 500
+        while True:
+            url = (
+                f"https://api.brevo.com/v3/contacts/lists/{list_id}/contacts"
+                f"?limit={limit}&offset={offset}"
+            )
+            request = urllib.request.Request(
+                url=url,
+                headers={
+                    "accept": "application/json",
+                    "api-key": api_key,
+                },
+                method="GET",
+            )
+            try:
+                with urllib.request.urlopen(request, timeout=args.smtp_timeout_seconds) as response:
+                    payload = json.loads(response.read().decode("utf-8", errors="replace"))
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                raise SystemExit(f"Brevo list fetch failed: HTTP {exc.code}: {detail}") from exc
+            except urllib.error.URLError as exc:
+                raise SystemExit(f"Brevo list fetch failed: {exc}") from exc
+
+            contacts = payload.get("contacts", []) if isinstance(payload, dict) else []
+            if not isinstance(contacts, list):
+                contacts = []
+            if not contacts:
+                break
+            for contact in contacts:
+                if not isinstance(contact, dict):
+                    continue
+                email = str(contact.get("email", "")).strip()
+                if email and email not in seen:
+                    seen.add(email)
+                    recipients.append(email)
+            if len(contacts) < limit:
+                break
+            offset += limit
+        if not recipients:
+            raise SystemExit(f"No recipients found in Brevo list ID: {list_id}")
+        return recipients
+
     if args.to:
         return [args.to.strip()]
+    if not args.to_file:
+        raise SystemExit("Specify one of: --to, --to-file, or --brevo-list-id.")
     to_file = Path(args.to_file)
     if not to_file.exists():
         raise SystemExit(f"Recipient file not found: {to_file}")

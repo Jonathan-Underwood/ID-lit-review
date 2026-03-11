@@ -21,13 +21,14 @@ jobs:
       BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
       BREVO_SENDER_EMAIL: ${{ secrets.BREVO_SENDER_EMAIL }}
       BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
-      EMAIL_RECIPIENTS: ${{ secrets.EMAIL_RECIPIENTS }}
+      BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
       AUTO_PROCEED: "1"
       ESTIMATE_FIRST: "1"
       SEND_EMAIL: "1"
       NO_EMAIL: "0"
       EMAIL_PROVIDER: "brevo"
-      EMAIL_TO_FILE: "recipients.txt"
+      EMAIL_TO_FILE: ""
+      EMAIL_BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
       MAX_RESULTS: "400"
       LLM_CORE_TOP_N: "15"
       LLM_LITE_TOP_N: "25"
@@ -52,16 +53,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex perl
-
-      - name: Create Recipients File From Secret
-        run: |
-          if [ -z "${EMAIL_RECIPIENTS}" ]; then
-            echo "EMAIL_RECIPIENTS secret is empty." >&2
-            exit 1
-          fi
-          printf "%s\n" "${EMAIL_RECIPIENTS}" > recipients.txt
-          echo "Recipient count:"
-          grep -Ev '^\s*(#|$)' recipients.txt | wc -l
 
       - name: Run Weekly Pipeline
         run: |

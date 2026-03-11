@@ -39,6 +39,7 @@ SEND_EMAIL="${SEND_EMAIL:-0}"
 NO_EMAIL="${NO_EMAIL:-0}"
 EMAIL_TO="${EMAIL_TO:-}"
 EMAIL_TO_FILE="${EMAIL_TO_FILE:-}"
+EMAIL_BREVO_LIST_ID="${EMAIL_BREVO_LIST_ID:-${BREVO_LIST_ID:-}}"
 EMAIL_SUBJECT_PREFIX="${EMAIL_SUBJECT_PREFIX:-Weekly ID + General Medicine Digest}"
 EMAIL_PROVIDER="${EMAIL_PROVIDER:-smtp}"
 
@@ -133,8 +134,8 @@ if [[ "$PODCAST_SOURCE" == "1" ]]; then
 fi
 
 if [[ "$SEND_EMAIL" == "1" ]]; then
-  if [[ -z "$EMAIL_TO" && -z "$EMAIL_TO_FILE" ]]; then
-    echo "SEND_EMAIL=1 but EMAIL_TO and EMAIL_TO_FILE are both empty. Skipping email."
+  if [[ -z "$EMAIL_TO" && -z "$EMAIL_TO_FILE" && -z "$EMAIL_BREVO_LIST_ID" ]]; then
+    echo "SEND_EMAIL=1 but EMAIL_TO, EMAIL_TO_FILE, and EMAIL_BREVO_LIST_ID are empty. Skipping email."
   else
     EMAIL_SUBJECT="$EMAIL_SUBJECT_PREFIX ($(basename "$LATEST_MD" .md))"
     EMAIL_CMD=(
@@ -144,7 +145,9 @@ if [[ "$SEND_EMAIL" == "1" ]]; then
       --markdown "$LATEST_MD"
       --pdf "$LATEST_PDF"
     )
-    if [[ -n "$EMAIL_TO_FILE" ]]; then
+    if [[ -n "$EMAIL_BREVO_LIST_ID" ]]; then
+      EMAIL_CMD+=(--brevo-list-id "$EMAIL_BREVO_LIST_ID")
+    elif [[ -n "$EMAIL_TO_FILE" ]]; then
       EMAIL_CMD+=(--to-file "$EMAIL_TO_FILE")
     else
       EMAIL_CMD+=(--to "$EMAIL_TO")
