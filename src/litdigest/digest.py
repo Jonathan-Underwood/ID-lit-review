@@ -565,6 +565,104 @@ def collect_abstract(article: ET.Element) -> str:
     return re.sub(r"\s+", " ", " ".join(chunks)).strip()
 
 
+def _month_to_number(value: str) -> int | None:
+    token = normalize(value)
+    table = {
+        "jan": 1,
+        "january": 1,
+        "feb": 2,
+        "february": 2,
+        "mar": 3,
+        "march": 3,
+        "apr": 4,
+        "april": 4,
+        "may": 5,
+        "jun": 6,
+        "june": 6,
+        "jul": 7,
+        "july": 7,
+        "aug": 8,
+        "august": 8,
+        "sep": 9,
+        "sept": 9,
+        "september": 9,
+        "oct": 10,
+        "october": 10,
+        "nov": 11,
+        "november": 11,
+        "dec": 12,
+        "december": 12,
+    }
+    if token.isdigit():
+        num = int(token)
+        if 1 <= num <= 12:
+            return num
+        return None
+    return table.get(token)
+
+
+def format_date_ddmmyyyy(value: str) -> str:
+    token = (value or "").strip()
+    if not token:
+        return "Unknown"
+    m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", token)
+    if m:
+        return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+    m = re.match(r"^(\d{4})$", token)
+    if m:
+        return f"01-01-{m.group(1)}"
+    m = re.search(r"(19|20)\d{2}", token)
+    if m:
+        return f"01-01-{m.group(0)}"
+    return token
+
+
+def parse_pub_date_display(article: ET.Element) -> str:
+    year = text_or_empty(article.find(".//PubDate/Year"))
+    month_txt = text_or_empty(article.find(".//PubDate/Month"))
+    day_txt = text_or_empty(article.find(".//PubDate/Day"))
+    if year:
+        month_num = _month_to_number(month_txt) if month_txt else None
+        day_num = int(day_txt) if day_txt.isdigit() else None
+        if month_num and day_num and 1 <= day_num <= 31:
+            return f"{day_num:02d}-{month_num:02d}-{year}"
+        if month_num:
+            return f"01-{month_num:02d}-{year}"
+        return f"01-01-{year}"
+
+    medline = text_or_empty(article.find(".//PubDate/MedlineDate"))
+    if medline:
+        yr = re.search(r"(19|20)\d{2}", medline)
+        if yr:
+            return f"01-01-{yr.group(0)}"
+
+    # Fallback for electronic publication date fields.
+    y = text_or_empty(article.find(".//ArticleDate/Year"))
+    m = text_or_empty(article.find(".//ArticleDate/Month"))
+    d = text_or_empty(article.find(".//ArticleDate/Day"))
+    if y:
+        month_num = _month_to_number(m) if m else None
+        day_num = int(d) if d.isdigit() else None
+        if month_num and day_num and 1 <= day_num <= 31:
+            return f"{day_num:02d}-{month_num:02d}-{y}"
+        if month_num:
+            return f"01-{month_num:02d}-{y}"
+        return f"01-01-{y}"
+    return "Unknown"
+
+
+def format_article_type_display(article_types: list[str]) -> str:
+    if not article_types:
+        return ""
+    out: list[str] = []
+    for t in article_types[:3]:
+        if normalize(t) in {"randomized controlled trial", "randomised controlled trial"}:
+            out.append(f"**{escape_markdown_inline(t)}**")
+        else:
+            out.append(escape_markdown_inline(t))
+    return ", ".join(out)
+
+
 def collect_linked_comment_pmids(article: ET.Element) -> list[str]:
     pmids: list[str] = []
     for cc in article.findall(".//CommentsCorrections"):
@@ -727,6 +825,22 @@ def score_article(
         score -= penalty
         reasons.append(f"review_downweight=-{penalty}")
 
+    trial_or_guideline_signal = bool(
+        any(
+            re.search(
+                r"\b(randomized controlled trial|randomised controlled trial|clinical trial|practice guideline|guideline|phase)\b",
+                t,
+            )
+            for t in lower_types
+        )
+        or re.search(r"\b(randomized|randomised|phase\s*(ii|iii|2|3)|guideline)\b", haystack)
+    )
+    if id_hits and trial_or_guideline_signal:
+        bonus = int(topic_config.get("clinical_id_bonus", 1))
+        if bonus > 0:
+            score += bonus
+            reasons.append(f"clinical_id_bonus=+{bonus}")
+
     commentary_types = [t for t in lower_types if re.search(r"\b(editorial|comment|commentary)\b", t)]
     if commentary_types:
         penalty = int(topic_config.get("commentary_downweight", 2))
@@ -783,9 +897,7 @@ def parse_articles(
             journal = text_or_empty(article.find(".//Journal/Title"))
         journal_group = journal_groups.get(journal.lower(), "unknown")
 
-        year = text_or_empty(article.find(".//PubDate/Year"))
-        medline = text_or_empty(article.find(".//PubDate/MedlineDate"))
-        pub_date = year or medline or "Unknown"
+        pub_date = parse_pub_date_display(article)
 
         abstract = collect_abstract(article)
         if not abstract:
@@ -1281,7 +1393,7 @@ def write_podcast_source(
             editorial_index = {}
 
     with path.open("w", encoding="utf-8") as handle:
-        handle.write(f"# Core Digest Podcast Source ({as_of.isoformat()})\n\n")
+        handle.write(f"# Core Digest Podcast Source ({as_of.strftime('%d-%m-%Y')})\n\n")
         handle.write(
             "This document collates the top core papers for AI podcast/script generation, "
             "including full PubMed abstracts and linked commentary/editorial abstracts where available.\n\n"
@@ -1290,7 +1402,7 @@ def write_podcast_source(
             title_display = escape_markdown_inline(art.title)
             handle.write(f"## {i}. {title_display}\n\n")
             handle.write(f"- Journal: {art.journal}\n")
-            handle.write(f"- Date: {art.pub_date}\n")
+            handle.write(f"- Date: {format_date_ddmmyyyy(art.pub_date)}\n")
             handle.write(f"- Score: {art.score}\n")
             handle.write(f"- PubMed: {pubmed_link(art.pmid)}\n")
             if art.doi:
@@ -1366,7 +1478,7 @@ def write_outputs(
     core_pmids = {art.pmid for art in core}
     extended = [art for art in top if art.pmid not in core_pmids]
     with md_path.open("w", encoding="utf-8") as handle:
-        handle.write(f"# Weekly ID + General Medicine Literature Digest ({as_of.isoformat()})\n\n")
+        handle.write(f"# Weekly ID + General Medicine Literature Digest ({as_of.strftime('%d-%m-%Y')})\n\n")
         handle.write(f"- Window: last {days} days\n")
         handle.write(f"- Core digest items: {len(core)}\n")
         handle.write(f"- Extended digest items: {len(extended)}\n")
@@ -1385,9 +1497,12 @@ def write_outputs(
             handle.write(f"{i}. **{title_display}**\n")
             handle.write("\n")
             handle.write(
-                f"    Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal} | Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''}) | Translation horizon: {art.translation_horizon}\n"
             )
+            article_type_display = format_article_type_display(art.article_types)
+            if article_type_display:
+                handle.write(f"    Article type: {article_type_display}\n")
             handle.write("\n")
             p_link = pubmed_link(art.pmid)
             handle.write(f"    PubMed: [{p_link}]({p_link})\n")
@@ -1395,8 +1510,6 @@ def write_outputs(
             if art.doi:
                 d_link = doi_link(art.doi)
                 handle.write(f"    DOI: [{d_link}]({d_link})\n")
-            if art.article_types:
-                handle.write(f"    Type: {', '.join(art.article_types[:3])}\n")
             handle.write("\n")    
             read_rec = ""
             if art.llm_enrichment:
@@ -1440,9 +1553,12 @@ def write_outputs(
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
             handle.write(
-                f"    Journal: {art.journal} | Date: {art.pub_date} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal} | Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''})\n"
             )
+            article_type_display = format_article_type_display(art.article_types)
+            if article_type_display:
+                handle.write(f"    Article type: {article_type_display}\n")
             handle.write(f"    Journal group: {art.journal_group}\n")
             p_link = pubmed_link(art.pmid)
             handle.write(f"    PubMed: [{p_link}]({p_link})\n")
@@ -1498,7 +1614,7 @@ def write_run_summary(
     output_dir.mkdir(parents=True, exist_ok=True)
     path = output_dir / f"{as_of.isoformat()}_run_summary.json"
     payload: dict[str, Any] = {
-        "date": as_of.isoformat(),
+        "date": as_of.strftime("%d-%m-%Y"),
         "retrieved_count": retrieved_count,
         "scored_count": scored_count,
         "llm_enabled": llm_enabled,

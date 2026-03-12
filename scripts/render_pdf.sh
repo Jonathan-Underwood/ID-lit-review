@@ -16,7 +16,8 @@ RUN_DATE="$(echo "$MD_BASENAME" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})_.*$/\
 if [[ -z "$RUN_DATE" ]]; then
   RUN_DATE="$(date +%Y-%m-%d)"
 fi
-PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE} Jonathan Underwood v1.0 March 2026"
+RUN_DATE_DDMMYYYY="$(echo "$RUN_DATE" | awk -F- '{print $3 "-" $2 "-" $1}')"
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.0 March 2026"
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
