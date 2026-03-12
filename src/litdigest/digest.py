@@ -651,16 +651,96 @@ def parse_pub_date_display(article: ET.Element) -> str:
     return "Unknown"
 
 
-def format_article_type_display(article_types: list[str]) -> str:
-    if not article_types:
-        return ""
-    out: list[str] = []
-    for t in article_types[:3]:
-        if normalize(t) in {"randomized controlled trial", "randomised controlled trial"}:
-            out.append(f"**{escape_markdown_inline(t)}**")
-        else:
-            out.append(escape_markdown_inline(t))
-    return ", ".join(out)
+def is_rct_article(article_types: list[str], title: str = "", abstract: str = "") -> bool:
+    trial_text = normalize(f"{title} {abstract}")
+    # Do not label post-hoc/substudy analyses as primary RCTs.
+    if is_secondary_trial_analysis(trial_text):
+        return False
+    if is_observational_design(trial_text):
+        return False
+    if has_negated_rct_mention(trial_text):
+        return False
+    if any(
+        normalize(t) in {"randomized controlled trial", "randomised controlled trial"}
+        for t in article_types
+    ):
+        return True
+    # PubMed metadata can be incomplete; fall back to trial wording in title/abstract.
+    return bool(
+        re.search(
+            r"\b(randomi[sz]ed|placebo-controlled|double-blind|observer-blind|phase\s*(i|ii|iii|iv|1|2|3|4)\s*/\s*(ii|iii|2|3)|phase\s*(ii|iii|2|3)\s*trial|controlled trial)\b",
+            trial_text,
+        )
+    )
+
+
+def is_secondary_trial_analysis(text: str) -> bool:
+    secondary_signal = re.search(
+        r"\b(post[- ]hoc|substudy|sub-study|secondary analysis|exploratory analysis|ancillary analysis)\b",
+        text,
+    )
+    if not secondary_signal:
+        return False
+    # Common secondary-analysis markers in trial-derived method papers.
+    method_signal = re.search(
+        r"\b(pharmacokinetic|pharmacodynamic|pk/pd|exposure-response|population pharmacokinetic|model-informed|biomarker analysis)\b",
+        text,
+    )
+    trial_signal = re.search(r"\b(trial|randomi[sz]ed|placebo|double-blind|phase)\b", text)
+    return bool(method_signal or trial_signal)
+
+
+def is_observational_design(text: str) -> bool:
+    return re.search(
+        r"\b(retrospective|cohort|case-control|cross-sectional|observational|registry|database study|before-and-after|real-world evidence)\b",
+        text,
+    ) is not None
+
+
+def has_negated_rct_mention(text: str) -> bool:
+    return re.search(
+        r"\b(no|not|lack of|without)\s+(randomi[sz]ed|randomi[sz]ed controlled trial|rct)\b",
+        text,
+    ) is not None
+
+
+def trial_strength(article_types: list[str], title: str = "", abstract: str = "") -> int:
+    text = normalize(f"{title} {abstract}")
+    if is_observational_design(text) or has_negated_rct_mention(text):
+        return 0
+    lower_types = [normalize(t) for t in article_types]
+    strong_type = any(
+        t in {"randomized controlled trial", "randomised controlled trial", "clinical trial, phase iii"}
+        for t in lower_types
+    )
+    moderate_type = any(
+        t in {"clinical trial, phase ii", "guideline", "practice guideline"}
+        for t in lower_types
+    )
+    strong_text = re.search(
+        r"\b(randomi[sz]ed|placebo-controlled|double-blind|phase\s*(iii|3)|phase\s*3)\b",
+        text,
+    )
+    moderate_text = re.search(r"\b(phase\s*(ii|2)|guideline|practice guideline)\b", text)
+    if strong_type or strong_text:
+        return 2
+    if moderate_type or moderate_text:
+        return 1
+    return 0
+
+
+def id_tie_priority(art: Article) -> int:
+    # Favor clearly infection-relevant papers when numeric scores tie.
+    return 1 if any(r.startswith("id_keywords=+") for r in art.score_reasons) else 0
+
+
+def rank_sort_key(art: Article) -> tuple[int, int, int]:
+    return (
+        art.score,
+        id_tie_priority(art),
+        trial_strength(art.article_types, art.title, art.abstract),
+        1 if art.llm_enrichment else 0,
+    )
 
 
 def collect_linked_comment_pmids(article: ET.Element) -> list[str]:
@@ -703,15 +783,17 @@ def score_article(
 ) -> tuple[int, list[str], str]:
     score = 0
     reasons: list[str] = []
+    trial_text = normalize(f"{title} {abstract}")
+    secondary_trial_analysis = is_secondary_trial_analysis(trial_text)
     j_weight = journal_weights.get(journal.lower(), 0)
     score += j_weight
     if j_weight > 0:
         reasons.append(f"journal_weight={j_weight}")
 
     group_bonus = {
-        "infectious_diseases_microbiology_ipc": 3,
-        "general_medicine_acute_care": 1,
-        "basic_translational_infection_relevant": 0,
+        "infectious_diseases_microbiology_ipc": int(topic_config.get("id_group_bias", 1)),
+        "general_medicine_acute_care": int(topic_config.get("general_group_bias", 1)),
+        "basic_translational_infection_relevant": int(topic_config.get("basic_group_bias", 0)),
     }.get(journal_group, 0)
     if group_bonus > 0:
         score += group_bonus
@@ -721,7 +803,7 @@ def score_article(
     lower_types = [a.lower() for a in article_types]
     review_like_pattern = r"\b(review|systematic review|meta-analysis|narrative review|scoping review)\b"
     review_in_article_types = any(re.search(review_like_pattern, atype) for atype in lower_types)
-    review_in_text = re.search(review_like_pattern, normalize(f"{title} {abstract}")) is not None
+    review_in_text = re.search(review_like_pattern, trial_text) is not None
     is_review_like = review_in_article_types or review_in_text
     article_type_variants: dict[str, list[str]] = {
         "randomized controlled trial": [
@@ -745,17 +827,23 @@ def score_article(
             matched_type_weights.append((key, int(weight)))
     if matched_type_weights:
         best_key, best_weight = max(matched_type_weights, key=lambda item: item[1])
-        score += best_weight
-        reasons.append(f"article_type:{best_key}=+{best_weight}")
+        if (best_key == "randomized controlled trial") and secondary_trial_analysis:
+            reasons.append("article_type:rct_suppressed_secondary_analysis")
+        else:
+            score += best_weight
+            reasons.append(f"article_type:{best_key}=+{best_weight}")
     else:
         # Strict fallback: infer trial design only with explicit high-quality trial signals.
-        trial_text = normalize(f"{title} {abstract}")
         inferred_type_weights: list[tuple[str, int]] = []
         observational_pattern = (
             r"\b(case series|retrospective|cohort|propensity|matched|case-control|"
             r"observational|registry|database study|cross-sectional|before-and-after)\b"
         )
-        if (re.search(observational_pattern, trial_text) is None) and (not is_review_like):
+        if (
+            (re.search(observational_pattern, trial_text) is None)
+            and (not is_review_like)
+            and (not secondary_trial_analysis)
+        ):
             phase_iii_signal = re.search(r"\bphase\s*(iii|3)\b", trial_text) is not None
             phase_ii_signal = re.search(r"\bphase\s*(ii|2)\b", trial_text) is not None
             randomization_signal = re.search(
@@ -804,6 +892,33 @@ def score_article(
         add = min(id_cap, len(id_hits))
         score += add
         reasons.append(f"id_keywords=+{add}")
+        id_presence_bonus = int(topic_config.get("id_topic_presence_bonus", 1))
+        if id_presence_bonus > 0:
+            score += id_presence_bonus
+            reasons.append(f"id_topic_presence_bonus=+{id_presence_bonus}")
+        non_id_top_bonus = int(topic_config.get("id_non_id_top_journal_bonus", 3))
+        if (
+            non_id_top_bonus > 0
+            and journal_group in {"general_medicine_acute_care", "basic_translational_infection_relevant"}
+            and j_weight >= 2
+        ):
+            score += non_id_top_bonus
+            reasons.append(f"id_non_id_top_journal_bonus=+{non_id_top_bonus}")
+
+    human_clinical_signal = bool(
+        re.search(
+            r"\b(patients?|participants?|multicenter|multicentre|double-blind|placebo-controlled|clinical trial)\b",
+            haystack,
+        )
+    )
+    preclinical_only_signal = bool(
+        re.search(r"\b(mouse|mice|murine|in vitro|cell line|animal model)\b", haystack)
+    ) and (not human_clinical_signal)
+    if preclinical_only_signal:
+        preclinical_penalty = int(topic_config.get("preclinical_only_downweight", 1))
+        if preclinical_penalty > 0:
+            score -= preclinical_penalty
+            reasons.append(f"preclinical_only_downweight=-{preclinical_penalty}")
     if basic_hits:
         basic_cap = int(topic_config.get("basic_science_keywords_cap", 3))
         add = min(basic_cap, len(basic_hits))
@@ -815,10 +930,11 @@ def score_article(
     ]
     if oncology_hits:
         base_penalty = int(topic_config.get("oncology_downweight", 2))
-        # Keep infection-focused oncology content from being over-penalized.
-        penalty = base_penalty if not id_hits else max(1, base_penalty - 1)
-        score -= penalty
-        reasons.append(f"oncology_downweight=-{penalty}")
+        # Keep infection-focused oncology content neutral (no penalty).
+        penalty = base_penalty if not id_hits else 0
+        if penalty > 0:
+            score -= penalty
+            reasons.append(f"oncology_downweight=-{penalty}")
 
     if is_review_like:
         penalty = int(topic_config.get("review_downweight", 3))
@@ -949,7 +1065,7 @@ def parse_articles(
                 llm_enrichment=None,
             )
         )
-    rows.sort(key=lambda x: x.score, reverse=True)
+    rows.sort(key=rank_sort_key, reverse=True)
     return rows
 
 
@@ -1092,7 +1208,7 @@ def apply_llm_enrichment(
         if horizon in {"0-12 months", ">12 months"}:
             art.translation_horizon = horizon
 
-    articles.sort(key=lambda x: x.score, reverse=True)
+    articles.sort(key=rank_sort_key, reverse=True)
 
     # Ensure final core papers have full enrichment payload where possible.
     final_core = select_core_digest(articles=articles, core_size=min(15, len(articles)))
@@ -1156,7 +1272,7 @@ def apply_llm_enrichment(
                 quota_exhausted = True
                 break
 
-    articles.sort(key=lambda x: x.score, reverse=True)
+    articles.sort(key=rank_sort_key, reverse=True)
     save_cache(llm_cache_path, cache)
     targeted = len(target)
     success_rate = (len(enrichment_by_pmid) / targeted) if targeted else 1.0
@@ -1477,6 +1593,31 @@ def write_outputs(
     core = select_core_digest(articles=articles, core_size=15)
     core_pmids = {art.pmid for art in core}
     extended = [art for art in top if art.pmid not in core_pmids]
+
+    def build_journal_score_breakdown(score_reasons: list[str]) -> dict[str, Any]:
+        journal_weight = 0
+        group_bias = 0
+        applied_reasons: list[str] = []
+        for reason in score_reasons:
+            if reason.startswith("journal_weight="):
+                applied_reasons.append(reason)
+                try:
+                    journal_weight = int(reason.split("=", 1)[1])
+                except ValueError:
+                    pass
+            elif reason.startswith("group_bias="):
+                applied_reasons.append(reason)
+                try:
+                    group_bias = int(reason.split("=", 1)[1])
+                except ValueError:
+                    pass
+        return {
+            "journal_weight": journal_weight,
+            "group_bias": group_bias,
+            "total_journal_points": journal_weight + group_bias,
+            "reasons": applied_reasons,
+        }
+
     with md_path.open("w", encoding="utf-8") as handle:
         handle.write(f"# Weekly ID + General Medicine Literature Digest ({as_of.strftime('%d-%m-%Y')})\n\n")
         handle.write(f"- Window: last {days} days\n")
@@ -1496,13 +1637,11 @@ def write_outputs(
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
             handle.write("\n")
+            rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
             handle.write(
-                f"    Journal: {art.journal} | Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''}) | Translation horizon: {art.translation_horizon}\n"
             )
-            article_type_display = format_article_type_display(art.article_types)
-            if article_type_display:
-                handle.write(f"    Article type: {article_type_display}\n")
             handle.write("\n")
             p_link = pubmed_link(art.pmid)
             handle.write(f"    PubMed: [{p_link}]({p_link})\n")
@@ -1552,13 +1691,11 @@ def write_outputs(
         for i, art in enumerate(extended, start=1):
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
+            rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
             handle.write(
-                f"    Journal: {art.journal} | Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''})\n"
             )
-            article_type_display = format_article_type_display(art.article_types)
-            if article_type_display:
-                handle.write(f"    Article type: {article_type_display}\n")
             handle.write(f"    Journal group: {art.journal_group}\n")
             p_link = pubmed_link(art.pmid)
             handle.write(f"    PubMed: [{p_link}]({p_link})\n")
@@ -1587,6 +1724,7 @@ def write_outputs(
                 "rule_score": art.rule_score,
                 "llm_score": art.llm_score,
                 "score_reasons": art.score_reasons,
+                "journal_score_breakdown": build_journal_score_breakdown(art.score_reasons),
                 "translation_horizon": art.translation_horizon,
                 "category": art.category,
                 "article_types": art.article_types,

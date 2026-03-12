@@ -20,7 +20,7 @@ if [[ -f ".env.local" ]]; then
 fi
 
 DAYS="${DAYS:-7}"
-MAX_RESULTS="${MAX_RESULTS:-400}"
+MAX_RESULTS="${MAX_RESULTS:-500}"
 LLM_TOP_N="${LLM_TOP_N:-24}"
 LLM_CORE_TOP_N="${LLM_CORE_TOP_N:-10}"
 LLM_LITE_TOP_N="${LLM_LITE_TOP_N:-10}"

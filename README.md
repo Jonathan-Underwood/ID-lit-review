@@ -17,7 +17,7 @@ Each run generates in `outputs/`:
 
 ```bash
 cd /Users/jonathanunderwood/id-literature-digest
-python3 run_digest.py --days 7 --max-results 400
+python3 run_digest.py --days 7 --max-results 500
 ```
 
 With LLM enrichment:
@@ -25,7 +25,7 @@ With LLM enrichment:
 ```bash
 python3 run_digest.py \
   --days 7 \
-  --max-results 400 \
+  --max-results 500 \
   --llm-enrich \
   --llm-core-top-n 15 \
   --llm-lite-top-n 25 \
