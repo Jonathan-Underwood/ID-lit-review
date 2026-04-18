@@ -97,8 +97,9 @@ def ncbi_get(url: str, params: dict[str, str]) -> bytes:
 def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: int = 60) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    attempts = 3
+    attempts = 5
     backoff_seconds = 3.0
+    service_unavailable_backoff_seconds = 25.0
     for i in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -109,7 +110,11 @@ def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeou
             snippet = normalize(raw)[:260]
             retryable = exc.code in {429, 500, 502, 503, 504}
             if retryable and i < attempts - 1 and "exceeded your current quota" not in snippet:
-                time.sleep(backoff_seconds * (2**i))
+                if exc.code == 503:
+                    # 503 is usually transient backend load; wait longer before retrying.
+                    time.sleep(service_unavailable_backoff_seconds * (2**i))
+                else:
+                    time.sleep(backoff_seconds * (2**i))
                 continue
             raise LLMEnrichmentError(f"http_{exc.code}: {snippet}") from exc
         except urllib.error.URLError as exc:
@@ -1103,6 +1108,41 @@ def apply_llm_enrichment(
     quota_exhausted = False
     max_requests_reached = False
     request_count = 0
+    phase_stats: dict[str, dict[str, Any]] = {
+        "full": {
+            "target_count": 0,
+            "cache_hits": 0,
+            "unresolved_count": 0,
+            "batch_size": max(1, llm_batch_size),
+            "requests_attempted": 0,
+            "requests_succeeded": 0,
+            "requests_failed": 0,
+            "quota_errors": 0,
+            "split_retries": 0,
+            "items_enriched": 0,
+        },
+        "lite": {
+            "target_count": 0,
+            "cache_hits": 0,
+            "unresolved_count": 0,
+            "batch_size": max(1, llm_lite_batch_size),
+            "requests_attempted": 0,
+            "requests_succeeded": 0,
+            "requests_failed": 0,
+            "quota_errors": 0,
+            "split_retries": 0,
+            "items_enriched": 0,
+        },
+    }
+    backfill_stats: dict[str, int] = {
+        "missing_full_core_count": 0,
+        "requests_attempted": 0,
+        "requests_succeeded": 0,
+        "requests_failed": 0,
+        "quota_errors": 0,
+        "cache_hits": 0,
+        "items_enriched": 0,
+    }
 
     effective_core_n = llm_core_top_n if llm_core_top_n > 0 else llm_top_n
     core_target = select_core_digest(articles=articles, core_size=effective_core_n)
@@ -1123,6 +1163,8 @@ def apply_llm_enrichment(
         nonlocal request_count, quota_exhausted, max_requests_reached
         if not phase_target:
             return
+        phase_stats[profile]["target_count"] = len(phase_target)
+        phase_stats[profile]["batch_size"] = batch_size
         unresolved: list[Article] = []
         for art in phase_target:
             cached = cache.get(art.pmid)
@@ -1131,8 +1173,10 @@ def apply_llm_enrichment(
                 cached_profile = str(cached.get("profile", "full")).strip() or "full"
                 if isinstance(cached_enrichment, dict) and cached_profile == profile:
                     enrichment_by_pmid[art.pmid] = cached_enrichment
+                    phase_stats[profile]["cache_hits"] += 1
                     continue
             unresolved.append(art)
+        phase_stats[profile]["unresolved_count"] = len(unresolved)
 
         queue: list[list[Article]] = [
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
@@ -1147,6 +1191,7 @@ def apply_llm_enrichment(
             if request_count > 0 and llm_batch_delay_seconds > 0:
                 time.sleep(llm_batch_delay_seconds)
             request_count += 1
+            phase_stats[profile]["requests_attempted"] += 1
             try:
                 batch_enrichment = gemini_enrich_batch(
                     batch=batch,
@@ -1163,15 +1208,19 @@ def apply_llm_enrichment(
                     for art in batch:
                         art.score_reasons.append(f"llm_error:{err}")
                     quota_exhausted = True
+                    phase_stats[profile]["quota_errors"] += 1
+                    phase_stats[profile]["requests_failed"] += 1
                     continue
                 if len(batch) > 1 and should_retry_smaller_batch(exc):
                     mid = len(batch) // 2
                     queue.insert(0, batch[mid:])
                     queue.insert(0, batch[:mid])
+                    phase_stats[profile]["split_retries"] += 1
                     continue
                 err = short_error(exc)
                 for art in batch:
                     art.score_reasons.append(f"llm_error:{err}")
+                phase_stats[profile]["requests_failed"] += 1
                 continue
 
             for art in batch:
@@ -1184,6 +1233,8 @@ def apply_llm_enrichment(
                     "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
                 }
                 enriched_pmids.add(art.pmid)
+            phase_stats[profile]["requests_succeeded"] += 1
+            phase_stats[profile]["items_enriched"] += len(batch)
 
     for profile, phase_target, phase_batch_size in phase_defs:
         if quota_exhausted or max_requests_reached:
@@ -1215,6 +1266,7 @@ def apply_llm_enrichment(
     for art in final_core:
         if has_full_enrichment_payload(art.llm_enrichment):
             continue
+        backfill_stats["missing_full_core_count"] += 1
         cached = cache.get(art.pmid)
         if (
             isinstance(cached, dict)
@@ -1231,6 +1283,7 @@ def apply_llm_enrichment(
             if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
                 art.score_reasons.append(f"llm_priority=+{llm_pts}")
             enriched_pmids.add(art.pmid)
+            backfill_stats["cache_hits"] += 1
             continue
 
         if quota_exhausted or max_requests_reached:
@@ -1241,6 +1294,7 @@ def apply_llm_enrichment(
         if request_count > 0 and llm_batch_delay_seconds > 0:
             time.sleep(llm_batch_delay_seconds)
         request_count += 1
+        backfill_stats["requests_attempted"] += 1
         try:
             full_enrichment = gemini_enrich_batch(
                 batch=[art],
@@ -1265,11 +1319,15 @@ def apply_llm_enrichment(
                 "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
             }
             enriched_pmids.add(art.pmid)
+            backfill_stats["requests_succeeded"] += 1
+            backfill_stats["items_enriched"] += 1
         except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
             err = short_error(exc)
             art.score_reasons.append(f"llm_error:{err}")
+            backfill_stats["requests_failed"] += 1
             if is_quota_error(exc):
                 quota_exhausted = True
+                backfill_stats["quota_errors"] += 1
                 break
 
     articles.sort(key=rank_sort_key, reverse=True)
@@ -1291,6 +1349,8 @@ def apply_llm_enrichment(
         "quota_exhausted": quota_exhausted,
         "success_rate": round(success_rate, 3),
         "error_counts": error_counts,
+        "phase_stats": phase_stats,
+        "backfill_stats": backfill_stats,
     }
     return articles, len(enriched_pmids), stats
 
@@ -1433,14 +1493,6 @@ def pubmed_link(pmid: str) -> str:
 
 def doi_link(doi: str | None) -> str:
     return f"https://doi.org/{doi}" if doi else ""
-
-
-def summarize_reading_time(total_items: int) -> str:
-    if total_items <= 15:
-        return "~15 minutes"
-    if total_items <= 40:
-        return "~30-60 minutes"
-    return "~60+ minutes"
 
 
 def has_full_enrichment_payload(enrichment: dict[str, Any] | None) -> bool:
@@ -1623,7 +1675,7 @@ def write_outputs(
         handle.write(f"- Window: last {days} days\n")
         handle.write(f"- Core digest items: {len(core)}\n")
         handle.write(f"- Extended digest items: {len(extended)}\n")
-        handle.write(f"- Estimated reading time: {summarize_reading_time(len(top))}\n\n")
+        handle.write(f"- Total papers scored: {len(articles)}\n\n")
         if llm_stats:
             target = int(llm_stats.get("target_count", 0))
             enriched = int(llm_stats.get("enriched_count", 0))
@@ -1770,6 +1822,8 @@ def write_run_summary(
                 "max_requests_reached": llm_stats.get("max_requests_reached", False),
                 "quota_exhausted": llm_stats.get("quota_exhausted", False),
                 "error_counts": llm_stats.get("error_counts", {}),
+                "phase_stats": llm_stats.get("phase_stats", {}),
+                "backfill_stats": llm_stats.get("backfill_stats", {}),
             },
         }
     with path.open("w", encoding="utf-8") as handle:
@@ -2071,6 +2125,9 @@ def main(argv: list[str] | None = None) -> int:
         LLM requests used: {llm_stats["requests_used"]}
         LLM max requests reached: {llm_stats["max_requests_reached"]}
         LLM quota exhausted: {llm_stats["quota_exhausted"]}
+        LLM full phase: target {llm_stats.get("phase_stats", {}).get("full", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("full", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("full", {}).get("requests_attempted", 0)}
+        LLM lite phase: target {llm_stats.get("phase_stats", {}).get("lite", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("lite", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("lite", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("lite", {}).get("requests_attempted", 0)}
+        LLM core backfill: missing full core {llm_stats.get("backfill_stats", {}).get("missing_full_core_count", 0)}, cache hits {llm_stats.get("backfill_stats", {}).get("cache_hits", 0)}, requests {llm_stats.get("backfill_stats", {}).get("requests_attempted", 0)}
         Markdown: {md_path}
         JSON: {json_path}
         Run summary: {summary_path}
