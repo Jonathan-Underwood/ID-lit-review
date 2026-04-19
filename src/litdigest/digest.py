@@ -227,7 +227,11 @@ def gemini_enrich_batch(
             Rules:
             - Include one output object per PMID listed below.
             - Keep one_line_summary to <= 30 words.
-            - Set read_recommendation using: read_now (practice-changing/high-signal), read_if_time (useful detail), awareness_only (low immediate actionability).
+            - Do not describe a paper as a randomized controlled trial unless it is clearly a primary interventional trial report (not a retrospective cohort, post-hoc analysis, substudy, PK/PD analysis, or secondary analysis).
+            - Set read_recommendation using this rule:
+              - read_now only when evidence appears high-signal for near-term decisions (typically clinical_relevance_12m >= 4 and confidence >= 0.7).
+              - read_if_time when relevance is moderate (typically clinical_relevance_12m 2-3 or confidence < 0.7).
+              - awareness_only for low immediate actionability.
             - Do not include any text outside JSON.
 
             Papers:
@@ -246,7 +250,8 @@ def gemini_enrich_batch(
                   "why_it_matters_points": ["exactly 3 concise bullets on context and impact (not actions)"],
                   "headline_result": "1 sentence with key numeric outcome and comparator if available",
                   "trial_n": "sample size text, e.g. n=842 or not reported",
-                  "clinical_takeaway": ["exactly 2 or 3 concise action-oriented bullets, including key limitation/caveat"],
+                  "major_limitation": "1 concise sentence stating the most important limitation/caveat",
+                  "clinical_takeaway": ["exactly 2 or 3 concise action-oriented bullets"],
                   "read_recommendation": "read_now|read_if_time|awareness_only",
                   "clinical_impact_12m": 0-5 integer,
                   "method_quality": 0-5 integer,
@@ -265,9 +270,15 @@ def gemini_enrich_batch(
             - why_it_matters_points must have exactly 3 bullets and must focus on context/importance only (disease burden, who should care, decision impact).
             - why_it_matters_points must NOT include management instructions and must NOT repeat numeric effect-size details already in headline_result.
             - If trial n is not stated, set trial_n to "not reported".
-            - clinical_takeaway must have 2 or 3 short strings, be action-oriented (what to do or watch), and include at least one key limitation/caveat.
-            - Do not duplicate ideas between why_it_matters_points and clinical_takeaway.
-            - Set read_recommendation using: read_now (practice-changing/high-signal), read_if_time (useful detail), awareness_only (low immediate actionability).
+            - major_limitation must be exactly one short sentence naming the most important methodological limitation/caveat (e.g., retrospective design, confounding, small sample, surrogate endpoint, short follow-up, subgroup-only analysis).
+            - clinical_takeaway must have 2 or 3 short strings and be action-oriented (what to do or watch).
+            - Do not duplicate ideas between why_it_matters_points and clinical_takeaway, and do not repeat the major_limitation text in clinical_takeaway.
+            - Do not describe a paper as a randomized controlled trial unless it is clearly a primary interventional trial report (not a retrospective cohort, post-hoc analysis, substudy, PK/PD analysis, or secondary analysis).
+            - If abstract does not provide a clear numeric primary outcome, make headline_result explicitly state that numeric effect size is not reported.
+            - Set read_recommendation using this rule:
+              - read_now only when clinical_impact_12m >= 4, method_quality >= 4, and confidence >= 0.7.
+              - read_if_time for moderate signal (for example impact 2-3 or method quality 2-3).
+              - awareness_only for low immediate actionability.
             - Do not include any text outside JSON.
 
             Papers:
@@ -312,6 +323,7 @@ def gemini_enrich_batch(
                 },
                 "headline_result": {"type": "STRING"},
                 "trial_n": {"type": "STRING"},
+                "major_limitation": {"type": "STRING"},
                 "clinical_takeaway": {
                     "type": "ARRAY",
                     "items": {"type": "STRING"}
@@ -329,6 +341,7 @@ def gemini_enrich_batch(
                 "why_it_matters_points",
                 "headline_result",
                 "trial_n",
+                "major_limitation",
                 "clinical_takeaway",
                 "read_recommendation",
                 "clinical_impact_12m",
@@ -510,6 +523,7 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
         "why_it_matters_points",
         "headline_result",
         "trial_n",
+        "major_limitation",
         "clinical_takeaway",
         "read_recommendation",
         "read_now",
@@ -528,6 +542,7 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
             max_items=3,
             forbidden_tokens=forbidden_tokens,
         )
+        cleaned["major_limitation"] = collapse_whitespace(str(cleaned.get("major_limitation", "")))[:220]
         cleaned["clinical_takeaway"] = sanitize_list_field(
             value=cleaned.get("clinical_takeaway"),
             max_items=3,
@@ -606,20 +621,18 @@ def _month_to_number(value: str) -> int | None:
     return table.get(token)
 
 
-def format_date_ddmmyyyy(value: str) -> str:
+def format_date_ddmmyyyy(value: str, fallback_date: dt.date | None = None) -> str:
     token = (value or "").strip()
     if not token:
-        return "Unknown"
+        return fallback_date.strftime("%d-%m-%Y") if fallback_date else "Not reported"
     m = re.match(r"^(\d{4})-(\d{2})-(\d{2})$", token)
     if m:
         return f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
-    m = re.match(r"^(\d{4})$", token)
-    if m:
-        return f"01-01-{m.group(1)}"
-    m = re.search(r"(19|20)\d{2}", token)
-    if m:
-        return f"01-01-{m.group(0)}"
-    return token
+    if re.match(r"^\d{2}-\d{2}-\d{4}$", token):
+        return token
+    if fallback_date:
+        return fallback_date.strftime("%d-%m-%Y")
+    return "Not reported"
 
 
 def parse_pub_date_display(article: ET.Element) -> str:
@@ -632,14 +645,14 @@ def parse_pub_date_display(article: ET.Element) -> str:
         if month_num and day_num and 1 <= day_num <= 31:
             return f"{day_num:02d}-{month_num:02d}-{year}"
         if month_num:
-            return f"01-{month_num:02d}-{year}"
-        return f"01-01-{year}"
+            return f"{month_num:02d}-{year}"
+        return year
 
     medline = text_or_empty(article.find(".//PubDate/MedlineDate"))
     if medline:
         yr = re.search(r"(19|20)\d{2}", medline)
         if yr:
-            return f"01-01-{yr.group(0)}"
+            return yr.group(0)
 
     # Fallback for electronic publication date fields.
     y = text_or_empty(article.find(".//ArticleDate/Year"))
@@ -651,9 +664,9 @@ def parse_pub_date_display(article: ET.Element) -> str:
         if month_num and day_num and 1 <= day_num <= 31:
             return f"{day_num:02d}-{month_num:02d}-{y}"
         if month_num:
-            return f"01-{month_num:02d}-{y}"
-        return f"01-01-{y}"
-    return "Unknown"
+            return f"{month_num:02d}-{y}"
+        return y
+    return "Not reported"
 
 
 def is_rct_article(article_types: list[str], title: str = "", abstract: str = "") -> bool:
@@ -1570,7 +1583,7 @@ def write_podcast_source(
             title_display = escape_markdown_inline(art.title)
             handle.write(f"## {i}. {title_display}\n\n")
             handle.write(f"- Journal: {art.journal}\n")
-            handle.write(f"- Date: {format_date_ddmmyyyy(art.pub_date)}\n")
+            handle.write(f"- Date: {format_date_ddmmyyyy(art.pub_date, as_of)}\n")
             handle.write(f"- Score: {art.score}\n")
             handle.write(f"- PubMed: {pubmed_link(art.pmid)}\n")
             if art.doi:
@@ -1691,7 +1704,7 @@ def write_outputs(
             handle.write("\n")
             rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
             handle.write(
-                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date, as_of)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''}) | Translation horizon: {art.translation_horizon}\n"
             )
             handle.write("\n")
@@ -1727,6 +1740,9 @@ def write_outputs(
                 headline_result = str(art.llm_enrichment.get("headline_result", "")).strip()
                 if headline_result:
                     handle.write(f"    **Headline result:** {escape_markdown_inline(headline_result)}\n")
+                major_limitation = str(art.llm_enrichment.get("major_limitation", "")).strip()
+                if major_limitation:
+                    handle.write(f"    **Major limitation:** {escape_markdown_inline(major_limitation)}\n")
                 read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
             takeaways = art.llm_enrichment.get("clinical_takeaway") if art.llm_enrichment else None
             if isinstance(takeaways, list) and takeaways:
@@ -1745,7 +1761,7 @@ def write_outputs(
             handle.write(f"{i}. **{title_display}**\n")
             rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
             handle.write(
-                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date)} | Score: {art.score} (rule {art.rule_score}"
+                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date, as_of)} | Score: {art.score} (rule {art.rule_score}"
                 f"{', llm +' + str(art.llm_score) if art.llm_score else ''})\n"
             )
             handle.write(f"    Journal group: {art.journal_group}\n")
