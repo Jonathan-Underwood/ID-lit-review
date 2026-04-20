@@ -4,6 +4,7 @@ import argparse
 import datetime as dt
 import json
 import os
+import random
 import re
 import sys
 import textwrap
@@ -97,9 +98,12 @@ def ncbi_get(url: str, params: dict[str, str]) -> bytes:
 def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: int = 60) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    attempts = 5
-    backoff_seconds = 3.0
-    service_unavailable_backoff_seconds = 25.0
+    attempts = max(1, int(os.getenv("LLM_HTTP_RETRY_ATTEMPTS", "6")))
+    backoff_seconds = float(os.getenv("LLM_HTTP_BACKOFF_SECONDS", "4.0"))
+    service_unavailable_backoff_seconds = float(os.getenv("LLM_HTTP_503_BACKOFF_SECONDS", "30.0"))
+    rate_limit_backoff_seconds = float(os.getenv("LLM_HTTP_429_BACKOFF_SECONDS", "75.0"))
+    max_backoff_seconds = float(os.getenv("LLM_HTTP_MAX_BACKOFF_SECONDS", "600.0"))
+    jitter_seconds = float(os.getenv("LLM_HTTP_RETRY_JITTER_SECONDS", "2.0"))
     for i in range(attempts):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -108,18 +112,25 @@ def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeou
         except urllib.error.HTTPError as exc:
             raw = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
             snippet = normalize(raw)[:260]
+            hard_quota_exhausted = exc.code == 429 and "exceeded your current quota" in snippet
             retryable = exc.code in {429, 500, 502, 503, 504}
-            if retryable and i < attempts - 1 and "exceeded your current quota" not in snippet:
+            if retryable and i < attempts - 1 and not hard_quota_exhausted:
                 if exc.code == 503:
-                    # 503 is usually transient backend load; wait longer before retrying.
-                    time.sleep(service_unavailable_backoff_seconds * (2**i))
+                    # 503 is usually transient backend load; use a long exponential backoff.
+                    wait_seconds = service_unavailable_backoff_seconds * (2**i)
+                elif exc.code == 429:
+                    # 429 can be short-term throttling; back off longer than generic retries.
+                    wait_seconds = rate_limit_backoff_seconds * (2**i)
                 else:
-                    time.sleep(backoff_seconds * (2**i))
+                    wait_seconds = backoff_seconds * (2**i)
+                wait_seconds = min(max_backoff_seconds, wait_seconds) + random.uniform(0, jitter_seconds)
+                time.sleep(wait_seconds)
                 continue
             raise LLMEnrichmentError(f"http_{exc.code}: {snippet}") from exc
         except urllib.error.URLError as exc:
             if i < attempts - 1:
-                time.sleep(backoff_seconds * (2**i))
+                wait_seconds = min(max_backoff_seconds, backoff_seconds * (2**i)) + random.uniform(0, jitter_seconds)
+                time.sleep(wait_seconds)
                 continue
             raise LLMEnrichmentError(f"url_error: {exc.reason}") from exc
     raise LLMEnrichmentError("post_json_failed_after_retries")
@@ -2153,8 +2164,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--llm-batch-delay-seconds",
         type=float,
-        default=15.0,
-        help="Delay between Gemini batch requests in seconds to stay within RPM limits (default: 15).",
+        default=20.0,
+        help="Delay between Gemini batch requests in seconds to stay within RPM limits (default: 20).",
     )
     parser.add_argument(
         "--llm-min-success-rate",
