@@ -247,10 +247,10 @@ def gemini_enrich_batch(
               "items": [
                 {{
                   "pmid": "string",
-                  "why_it_matters_points": ["exactly 3 concise bullets on context and impact (not actions)"],
+                  "why_it_matters_points": ["exactly 3 concise bullets on context and clinical impact (not actions)"],
                   "headline_result": "1 sentence with key numeric outcome and comparator if available",
                   "trial_n": "sample size text, e.g. n=842 or not reported",
-                  "major_limitation": "1 concise sentence stating the most important limitation/caveat",
+                  "major_limitation": "1 concise sentence stating the most important methodological limitation/caveat",
                   "clinical_takeaway": ["exactly 2 or 3 concise action-oriented bullets"],
                   "read_recommendation": "read_now|read_if_time|awareness_only",
                   "clinical_impact_12m": 0-5 integer,
@@ -270,7 +270,7 @@ def gemini_enrich_batch(
             - why_it_matters_points must have exactly 3 bullets and must focus on context/importance only (disease burden, who should care, decision impact).
             - why_it_matters_points must NOT include management instructions and must NOT repeat numeric effect-size details already in headline_result.
             - If trial n is not stated, set trial_n to "not reported".
-            - major_limitation must be exactly one short sentence naming the most important methodological limitation/caveat (e.g., retrospective design, confounding, small sample, surrogate endpoint, short follow-up, subgroup-only analysis).
+            - major_limitation must be exactly one short sentence naming the most important methodological limitation/caveat (e.g., retrospective design, confounding, small sample, surrogate endpoint, short follow-up, subgroup-only analysis) and if no serious flaws look for an issue with generalisability of findings (e.g. highly selected patient group).
             - clinical_takeaway must have 2 or 3 short strings and be action-oriented (what to do or watch).
             - Do not duplicate ideas between why_it_matters_points and clinical_takeaway, and do not repeat the major_limitation text in clinical_takeaway.
             - Do not describe a paper as a randomized controlled trial unless it is clearly a primary interventional trial report (not a retrospective cohort, post-hoc analysis, substudy, PK/PD analysis, or secondary analysis).
@@ -297,10 +297,16 @@ def gemini_enrich_batch(
             "properties": {
                 "pmid": {"type": "STRING"},
                 "one_line_summary": {"type": "STRING"},
-                "read_recommendation": {"type": "STRING"},
-                "clinical_relevance_12m": {"type": "INTEGER"},
-                "translation_horizon": {"type": "STRING"},
-                "confidence": {"type": "NUMBER"},
+                "read_recommendation": {
+                    "type": "STRING",
+                    "enum": ["read_now", "read_if_time", "awareness_only"],
+                },
+                "clinical_relevance_12m": {"type": "INTEGER", "minimum": 0, "maximum": 5},
+                "translation_horizon": {
+                    "type": "STRING",
+                    "enum": ["0-12 months", ">12 months"],
+                },
+                "confidence": {"type": "NUMBER", "minimum": 0.0, "maximum": 1.0},
             },
             "required": [
                 "pmid",
@@ -319,22 +325,35 @@ def gemini_enrich_batch(
                 "pmid": {"type": "STRING"},
                 "why_it_matters_points": {
                     "type": "ARRAY",
-                    "items": {"type": "STRING"}
+                    "items": {"type": "STRING"},
+                    "minItems": 3,
+                    "maxItems": 3,
                 },
                 "headline_result": {"type": "STRING"},
                 "trial_n": {"type": "STRING"},
                 "major_limitation": {"type": "STRING"},
                 "clinical_takeaway": {
                     "type": "ARRAY",
-                    "items": {"type": "STRING"}
+                    "items": {"type": "STRING"},
+                    "minItems": 2,
+                    "maxItems": 3,
                 },
-                "read_recommendation": {"type": "STRING"},
-                "clinical_impact_12m": {"type": "INTEGER"},
-                "method_quality": {"type": "INTEGER"},
-                "novelty": {"type": "INTEGER"},
-                "action": {"type": "STRING"},
-                "translation_horizon": {"type": "STRING"},
-                "confidence": {"type": "NUMBER"}
+                "read_recommendation": {
+                    "type": "STRING",
+                    "enum": ["read_now", "read_if_time", "awareness_only"],
+                },
+                "clinical_impact_12m": {"type": "INTEGER", "minimum": 0, "maximum": 5},
+                "method_quality": {"type": "INTEGER", "minimum": 0, "maximum": 5},
+                "novelty": {"type": "INTEGER", "minimum": 0, "maximum": 5},
+                "action": {
+                    "type": "STRING",
+                    "enum": ["none", "watch", "discuss", "implement_candidate"],
+                },
+                "translation_horizon": {
+                    "type": "STRING",
+                    "enum": ["0-12 months", ">12 months"],
+                },
+                "confidence": {"type": "NUMBER", "minimum": 0.0, "maximum": 1.0}
             },
             "required": [
                 "pmid",
@@ -496,6 +515,31 @@ def normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().lower()
 
 
+def repair_common_mojibake(text: str) -> str:
+    # Repair common UTF-8/Latin-1 mojibake patterns seen in PubMed metadata.
+    replacements = {
+        "Î”": "Δ",
+        "\u00ce\u0094": "Δ",
+        "Î±": "α",
+        "Î²": "β",
+        "Î³": "γ",
+        "Î¼": "μ",
+        "â‰¥": "≥",
+        "â‰¤": "≤",
+        "â†’": "→",
+        "â€“": "-",
+        "â€”": "-",
+        "â€²": "'",
+        "â€³": '"',
+    }
+    out = text
+    for bad, good in replacements.items():
+        out = out.replace(bad, good)
+    # Special case often observed as CCR5Î32/Î32 where delta glyph is lost.
+    out = re.sub(r"CCR5Î32/Î32", "CCR5Δ32/Δ32", out, flags=re.IGNORECASE)
+    return out
+
+
 def sanitize_list_field(value: Any, max_items: int, forbidden_tokens: set[str]) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -542,12 +586,26 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
             max_items=3,
             forbidden_tokens=forbidden_tokens,
         )
+        cleaned["headline_result"] = collapse_whitespace(str(cleaned.get("headline_result", "")))[:280]
+        cleaned["trial_n"] = collapse_whitespace(str(cleaned.get("trial_n", "")))[:80]
         cleaned["major_limitation"] = collapse_whitespace(str(cleaned.get("major_limitation", "")))[:220]
         cleaned["clinical_takeaway"] = sanitize_list_field(
             value=cleaned.get("clinical_takeaway"),
             max_items=3,
             forbidden_tokens=forbidden_tokens,
         )
+        # Keep structure stable even when model under-produces.
+        if not cleaned["why_it_matters_points"]:
+            fallback = cleaned["headline_result"] or "Clinical relevance noted; see abstract for details."
+            cleaned["why_it_matters_points"] = [fallback]
+        if not cleaned["clinical_takeaway"]:
+            cleaned["clinical_takeaway"] = ["Monitor emerging evidence before changing practice."]
+    else:
+        cleaned["one_line_summary"] = collapse_whitespace(str(cleaned.get("one_line_summary", "")))[:260]
+    cleaned["read_recommendation"] = collapse_whitespace(str(cleaned.get("read_recommendation", "")))
+    cleaned["translation_horizon"] = collapse_whitespace(str(cleaned.get("translation_horizon", "")))
+    if "action" in cleaned:
+        cleaned["action"] = collapse_whitespace(str(cleaned.get("action", "")))
     return cleaned
 
 
@@ -564,7 +622,50 @@ def format_read_recommendation(value: str) -> str:
 
 
 def collapse_whitespace(text: str) -> str:
-    return re.sub(r"\s+", " ", text or "").strip()
+    repaired = repair_common_mojibake(text or "")
+    return re.sub(r"\s+", " ", repaired).strip()
+
+
+def detect_mojibake_warnings(articles: list[Article], limit: int = 25) -> list[str]:
+    # Catch suspicious residual encoding artifacts so we can patch new patterns quickly.
+    suspect_re = re.compile(r"(Ã.|Â|â€|â‰|â†|Î.|ï»¿|�)")
+    warnings: list[str] = []
+    seen: set[str] = set()
+
+    def add_warning(pmid: str, field: str, raw_text: str) -> None:
+        snippet = collapse_whitespace(raw_text)[:120]
+        key = f"{pmid}|{field}|{snippet}"
+        if key in seen:
+            return
+        seen.add(key)
+        warnings.append(f"PMID {pmid} {field}: {snippet}")
+
+    for art in articles:
+        text_fields: list[tuple[str, str]] = [
+            ("title", art.title),
+            ("journal", art.journal),
+            ("abstract", art.abstract),
+        ]
+        for field_name, value in text_fields:
+            if value and suspect_re.search(value):
+                add_warning(art.pmid, field_name, value)
+                if len(warnings) >= limit:
+                    return warnings
+
+        if isinstance(art.llm_enrichment, dict):
+            for key, value in art.llm_enrichment.items():
+                if isinstance(value, str) and value and suspect_re.search(value):
+                    add_warning(art.pmid, f"llm.{key}", value)
+                    if len(warnings) >= limit:
+                        return warnings
+                elif isinstance(value, list):
+                    for idx, item in enumerate(value):
+                        txt = str(item)
+                        if txt and suspect_re.search(txt):
+                            add_warning(art.pmid, f"llm.{key}[{idx}]", txt)
+                            if len(warnings) >= limit:
+                                return warnings
+    return warnings
 
 
 def escape_markdown_inline(text: str) -> str:
@@ -1842,6 +1943,10 @@ def write_run_summary(
                 "backfill_stats": llm_stats.get("backfill_stats", {}),
             },
         }
+    payload["encoding_warnings"] = {
+        "count": len((llm_stats or {}).get("mojibake_warnings", [])),
+        "samples": (llm_stats or {}).get("mojibake_warnings", []),
+    }
     with path.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, indent=2)
     return path
@@ -1947,6 +2052,7 @@ def run(
         for key, count in (llm_stats.get("error_counts", {}) or {}).items()
         if key.startswith("llm_error:http_429")
     )
+    llm_stats["mojibake_warnings"] = detect_mojibake_warnings(articles=articles)
 
     if llm_enrich and llm_min_success_rate > 0 and llm_stats["success_rate"] < llm_min_success_rate:
         raise RuntimeError(
@@ -2149,6 +2255,8 @@ def main(argv: list[str] | None = None) -> int:
         Run summary: {summary_path}
         Podcast source: {podcast_path if podcast_path else "not generated"}
         """).strip())
+        for warning in llm_stats.get("mojibake_warnings", []):
+            print(f"Encoding warning: {warning}")
         if args.llm_enrich:
             diagnostic = format_llm_diagnostic(llm_stats)
             if diagnostic:

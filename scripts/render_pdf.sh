@@ -11,13 +11,15 @@ PDF_FILE="${MD_FILE%.md}.pdf"
 HTML_FILE="${MD_FILE%.md}.html"
 TMP_MD=""
 TMP_TEX_HEADER=""
+TMP_TEX_HEADER_FOOTER_ONLY=""
+HAS_LASTPAGE="0"
 MD_BASENAME="$(basename "$MD_FILE")"
 RUN_DATE="$(echo "$MD_BASENAME" | sed -nE 's/^([0-9]{4}-[0-9]{2}-[0-9]{2})_.*$/\1/p')"
 if [[ -z "$RUN_DATE" ]]; then
   RUN_DATE="$(date +%Y-%m-%d)"
 fi
 RUN_DATE_DDMMYYYY="$(echo "$RUN_DATE" | awk -F- '{print $3 "-" $2 "-" $1}')"
-PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.0 March 2026"
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.1 April 2026"
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
@@ -55,7 +57,7 @@ normalize_unicode_for_pdf() {
   fi
   local tmp_norm
   tmp_norm="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
-  perl -CS -pe 's/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/≥/>=/g; s/≤/<=/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
+  perl -Mutf8 -CS -pe 's/CCR5Î32\/Î32/CCR5Δ32\/Δ32/gi; s/CCR5Î\x{0094}32\/Î\x{0094}32/CCR5Δ32\/Δ32/gi; s/Î32/Δ32/g; s/Î\x{0094}/Δ/g; s/Î”/Δ/g; s/Î±/α/g; s/Î²/β/g; s/Î³/γ/g; s/Î¼/μ/g; s/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/≥/>=/g; s/≤/<=/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
   rm -f "$TMP_MD"
   TMP_MD="$tmp_norm"
   PDF_SOURCE="$TMP_MD"
@@ -68,6 +70,7 @@ fi
 cleanup() {
   [[ -n "$TMP_MD" ]] && rm -f "$TMP_MD"
   [[ -n "$TMP_TEX_HEADER" ]] && rm -f "$TMP_TEX_HEADER"
+  [[ -n "$TMP_TEX_HEADER_FOOTER_ONLY" ]] && rm -f "$TMP_TEX_HEADER_FOOTER_ONLY"
 }
 trap cleanup EXIT
 
@@ -109,23 +112,21 @@ run_pandoc_pdf() {
 
   # Force clearer hyperlink styling in PDF output for TeX engines.
   if [[ "$engine" == "tectonic" || "$engine" == "pdflatex" || "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
-    TMP_TEX_HEADER="$(mktemp "${TMPDIR:-/tmp}/linkstyle.XXXXXX.tex")"
-    if [[ "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
-      cat > "$TMP_TEX_HEADER" <<EOF
-\usepackage{fontspec}
-\usepackage{xcolor}
-\usepackage[normalem]{ulem}
+    if command -v kpsewhich >/dev/null 2>&1 && kpsewhich lastpage.sty >/dev/null 2>&1; then
+      HAS_LASTPAGE="1"
+    else
+      HAS_LASTPAGE="0"
+    fi
+
+    TMP_TEX_HEADER_FOOTER_ONLY="$(mktemp "${TMPDIR:-/tmp}/footerstyle.XXXXXX.tex")"
+    if [[ "$HAS_LASTPAGE" == "1" ]]; then
+      cat > "$TMP_TEX_HEADER_FOOTER_ONLY" <<EOF
 \usepackage{fancyhdr}
 \usepackage{lastpage}
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
   \sloppy
-  \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
-  \let\HrefOrig\href
-  \renewcommand{\href}[2]{\HrefOrig{#1}{\textcolor{blue}{\uline{#2}}}}
-  \let\UrlOrig\url
-  \renewcommand{\url}[1]{\textcolor{blue}{\uline{\nolinkurl{#1}}}}
   \pagestyle{fancy}
   \fancyhf{}
   \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
@@ -135,26 +136,47 @@ run_pandoc_pdf() {
 }
 EOF
     else
-      cat > "$TMP_TEX_HEADER" <<EOF
-\usepackage{xcolor}
-\usepackage[normalem]{ulem}
+      cat > "$TMP_TEX_HEADER_FOOTER_ONLY" <<EOF
 \usepackage{fancyhdr}
-\usepackage{lastpage}
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
   \sloppy
+  \pagestyle{fancy}
+  \fancyhf{}
+  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
+  \fancyfoot[R]{\scriptsize \thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
+EOF
+    fi
+    base_args+=(--include-in-header="$TMP_TEX_HEADER_FOOTER_ONLY")
+
+    TMP_TEX_HEADER="$(mktemp "${TMPDIR:-/tmp}/linkstyle.XXXXXX.tex")"
+    if [[ "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
+      cat > "$TMP_TEX_HEADER" <<EOF
+\usepackage{fontspec}
+\usepackage{xcolor}
+\usepackage[normalem]{ulem}
+\AtBeginDocument{%
   \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
   \let\HrefOrig\href
   \renewcommand{\href}[2]{\HrefOrig{#1}{\textcolor{blue}{\uline{#2}}}}
   \let\UrlOrig\url
   \renewcommand{\url}[1]{\textcolor{blue}{\uline{\nolinkurl{#1}}}}
-  \pagestyle{fancy}
-  \fancyhf{}
-  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
-  \fancyfoot[R]{\scriptsize \thepage\ of \pageref{LastPage}}
-  \renewcommand{\headrulewidth}{0pt}
-  \renewcommand{\footrulewidth}{0pt}
+}
+EOF
+    else
+      cat > "$TMP_TEX_HEADER" <<EOF
+\usepackage{xcolor}
+\usepackage[normalem]{ulem}
+\AtBeginDocument{%
+  \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
+  \let\HrefOrig\href
+  \renewcommand{\href}[2]{\HrefOrig{#1}{\textcolor{blue}{\uline{#2}}}}
+  \let\UrlOrig\url
+  \renewcommand{\url}[1]{\textcolor{blue}{\uline{\nolinkurl{#1}}}}
 }
 EOF
     fi
