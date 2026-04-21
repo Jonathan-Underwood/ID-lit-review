@@ -57,7 +57,11 @@ normalize_unicode_for_pdf() {
   fi
   local tmp_norm
   tmp_norm="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
-  perl -Mutf8 -CS -pe 's/CCR5Î32\/Î32/CCR5Δ32\/Δ32/gi; s/CCR5Î\x{0094}32\/Î\x{0094}32/CCR5Δ32\/Δ32/gi; s/Î32/Δ32/g; s/Î\x{0094}/Δ/g; s/Î”/Δ/g; s/Î±/α/g; s/Î²/β/g; s/Î³/γ/g; s/Î¼/μ/g; s/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/≥/>=/g; s/≤/<=/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
+  perl -Mutf8 -CS -pe 's/CCR5Î32\/Î32/CCR5Δ32\/Δ32/gi; s/CCR5Î\x{0094}32\/Î\x{0094}32/CCR5Δ32\/Δ32/gi; s/Î32/Δ32/g; s/Î\x{0094}/Δ/g; s/Î”/Δ/g; s/Î±/α/g; s/Î²/β/g; s/Î³/γ/g; s/Î¼/μ/g; s/â\x{0089}¥/≥/g; s/â\x{0089}¤/≤/g; s/â‰¥/≥/g; s/â‰¤/≤/g; s/â¥/≥/g; s/â¤/≤/g; s/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
+  if [[ "${PDF_ASCII_MATH_SYMBOLS:-0}" == "1" ]]; then
+    perl -Mutf8 -CS -pe 's/≥/>=/g; s/≤/<=/g;' "$tmp_norm" > "${tmp_norm}.ascii"
+    mv "${tmp_norm}.ascii" "$tmp_norm"
+  fi
   rm -f "$TMP_MD"
   TMP_MD="$tmp_norm"
   PDF_SOURCE="$TMP_MD"
