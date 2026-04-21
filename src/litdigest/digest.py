@@ -1848,13 +1848,13 @@ def write_outputs(
                     lite_summary = str(art.llm_enrichment.get("one_line_summary", "")).strip()
                     if lite_summary:
                         handle.write(f"\n    **Why it matters:** {escape_markdown_inline(lite_summary)}\n")
-                handle.write("\n")        
+                handle.write("\n")
                 headline_result = str(art.llm_enrichment.get("headline_result", "")).strip()
                 if headline_result:
                     handle.write(f"    **Headline result:** {escape_markdown_inline(headline_result)}\n")
                 major_limitation = str(art.llm_enrichment.get("major_limitation", "")).strip()
                 if major_limitation:
-                    handle.write(f"    **Major limitation:** {escape_markdown_inline(major_limitation)}\n")
+                    handle.write(f"\n    **Major limitation:** {escape_markdown_inline(major_limitation)}\n")
                 read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
             takeaways = art.llm_enrichment.get("clinical_takeaway") if art.llm_enrichment else None
             if isinstance(takeaways, list) and takeaways:
