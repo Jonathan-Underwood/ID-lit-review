@@ -21,6 +21,50 @@ from typing import Any
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 
+_http_telemetry: dict[str, Any] = {}
+
+
+def _new_http_telemetry() -> dict[str, Any]:
+    return {
+        "total_attempts": 0,
+        "successful_responses": 0,
+        "retries_performed": 0,
+        "retryable_http_errors": 0,
+        "http_errors_by_code": {},
+        "url_errors": 0,
+        "final_failures": 0,
+        "recovered_after_retry": 0,
+    }
+
+
+def reset_http_telemetry() -> None:
+    global _http_telemetry
+    _http_telemetry = _new_http_telemetry()
+
+
+def _telemetry_inc(name: str, amount: int = 1) -> None:
+    _http_telemetry[name] = int(_http_telemetry.get(name, 0)) + amount
+
+
+def _telemetry_inc_http_code(code: int) -> None:
+    bucket = _http_telemetry.setdefault("http_errors_by_code", {})
+    key = str(code)
+    bucket[key] = int(bucket.get(key, 0)) + 1
+
+
+def snapshot_http_telemetry() -> dict[str, Any]:
+    codes = dict(_http_telemetry.get("http_errors_by_code", {}))
+    return {
+        "total_attempts": int(_http_telemetry.get("total_attempts", 0)),
+        "successful_responses": int(_http_telemetry.get("successful_responses", 0)),
+        "retries_performed": int(_http_telemetry.get("retries_performed", 0)),
+        "retryable_http_errors": int(_http_telemetry.get("retryable_http_errors", 0)),
+        "http_errors_by_code": codes,
+        "url_errors": int(_http_telemetry.get("url_errors", 0)),
+        "final_failures": int(_http_telemetry.get("final_failures", 0)),
+        "recovered_after_retry": int(_http_telemetry.get("recovered_after_retry", 0)),
+    }
+
 
 class LLMEnrichmentError(Exception):
     """Raised when an LLM enrichment call fails in a user-actionable way."""
@@ -105,16 +149,24 @@ def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeou
     max_backoff_seconds = float(os.getenv("LLM_HTTP_MAX_BACKOFF_SECONDS", "600.0"))
     jitter_seconds = float(os.getenv("LLM_HTTP_RETRY_JITTER_SECONDS", "2.0"))
     for i in range(attempts):
+        _telemetry_inc("total_attempts")
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 body = resp.read().decode("utf-8")
+            _telemetry_inc("successful_responses")
+            if i > 0:
+                _telemetry_inc("recovered_after_retry")
             return json.loads(body)
         except urllib.error.HTTPError as exc:
+            _telemetry_inc_http_code(exc.code)
             raw = exc.read().decode("utf-8", errors="replace") if exc.fp else ""
             snippet = normalize(raw)[:260]
             hard_quota_exhausted = exc.code == 429 and "exceeded your current quota" in snippet
             retryable = exc.code in {429, 500, 502, 503, 504}
+            if retryable:
+                _telemetry_inc("retryable_http_errors")
             if retryable and i < attempts - 1 and not hard_quota_exhausted:
+                _telemetry_inc("retries_performed")
                 if exc.code == 503:
                     # 503 is usually transient backend load; use a long exponential backoff.
                     wait_seconds = service_unavailable_backoff_seconds * (2**i)
@@ -126,13 +178,18 @@ def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeou
                 wait_seconds = min(max_backoff_seconds, wait_seconds) + random.uniform(0, jitter_seconds)
                 time.sleep(wait_seconds)
                 continue
+            _telemetry_inc("final_failures")
             raise LLMEnrichmentError(f"http_{exc.code}: {snippet}") from exc
         except urllib.error.URLError as exc:
+            _telemetry_inc("url_errors")
             if i < attempts - 1:
+                _telemetry_inc("retries_performed")
                 wait_seconds = min(max_backoff_seconds, backoff_seconds * (2**i)) + random.uniform(0, jitter_seconds)
                 time.sleep(wait_seconds)
                 continue
+            _telemetry_inc("final_failures")
             raise LLMEnrichmentError(f"url_error: {exc.reason}") from exc
+    _telemetry_inc("final_failures")
     raise LLMEnrichmentError("post_json_failed_after_retries")
 
 
@@ -1954,6 +2011,7 @@ def write_run_summary(
                 "error_counts": llm_stats.get("error_counts", {}),
                 "phase_stats": llm_stats.get("phase_stats", {}),
                 "backfill_stats": llm_stats.get("backfill_stats", {}),
+                "http_telemetry": llm_stats.get("http_telemetry", {}),
             },
         }
     payload["encoding_warnings"] = {
@@ -2035,6 +2093,7 @@ def run(
             llm_lite_batch_size=llm_lite_batch_size,
             llm_output_tokens_per_paper_estimate=llm_output_tokens_per_paper_estimate,
         )
+        reset_http_telemetry()
 
     articles, enriched_count, llm_stats = apply_llm_enrichment(
         articles=articles,
@@ -2051,6 +2110,7 @@ def run(
     )
     if llm_enrich:
         llm_stats["estimate"] = preflight_estimate
+        llm_stats["http_telemetry"] = snapshot_http_telemetry()
 
     # Add display-oriented LLM breakdown so "missing" enriched papers are traceable.
     top = articles[:40]
@@ -2260,6 +2320,11 @@ def main(argv: list[str] | None = None) -> int:
         LLM requests used: {llm_stats["requests_used"]}
         LLM max requests reached: {llm_stats["max_requests_reached"]}
         LLM quota exhausted: {llm_stats["quota_exhausted"]}
+        LLM HTTP attempts (raw): {llm_stats.get("http_telemetry", {}).get("total_attempts", 0)}
+        LLM HTTP retries performed: {llm_stats.get("http_telemetry", {}).get("retries_performed", 0)}
+        LLM HTTP recovered after retry: {llm_stats.get("http_telemetry", {}).get("recovered_after_retry", 0)}
+        LLM HTTP final failures: {llm_stats.get("http_telemetry", {}).get("final_failures", 0)}
+        LLM HTTP status counts: {llm_stats.get("http_telemetry", {}).get("http_errors_by_code", {})}
         LLM full phase: target {llm_stats.get("phase_stats", {}).get("full", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("full", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("full", {}).get("requests_attempted", 0)}
         LLM lite phase: target {llm_stats.get("phase_stats", {}).get("lite", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("lite", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("lite", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("lite", {}).get("requests_attempted", 0)}
         LLM core backfill: missing full core {llm_stats.get("backfill_stats", {}).get("missing_full_core_count", 0)}, cache hits {llm_stats.get("backfill_stats", {}).get("cache_hits", 0)}, requests {llm_stats.get("backfill_stats", {}).get("requests_attempted", 0)}
