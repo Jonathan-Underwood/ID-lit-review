@@ -2,8 +2,8 @@ name: Weekly Digest
 
 on:
   schedule:
-    # Friday 08:09 UTC (GMT)
-    - cron: "9 8 * * 5"
+    # Saturday 09:13 UTC (GMT)
+    - cron: "13 9 * * 6"
   workflow_dispatch:
 
 concurrency:

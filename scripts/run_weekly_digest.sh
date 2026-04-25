@@ -24,6 +24,7 @@ MAX_RESULTS="${MAX_RESULTS:-500}"
 LLM_TOP_N="${LLM_TOP_N:-24}"
 LLM_CORE_TOP_N="${LLM_CORE_TOP_N:-15}"
 LLM_LITE_TOP_N="${LLM_LITE_TOP_N:-25}"
+LLM_CACHE="${LLM_CACHE:-outputs/llm_cache.json}"
 LLM_BATCH_SIZE="${LLM_BATCH_SIZE:-1}"
 LLM_LITE_BATCH_SIZE="${LLM_LITE_BATCH_SIZE:-13}"
 LLM_BATCH_DELAY_SECONDS="${LLM_BATCH_DELAY_SECONDS:-30}"
@@ -57,6 +58,7 @@ CMD=(
   --llm-top-n "$LLM_TOP_N" \
   --llm-core-top-n "$LLM_CORE_TOP_N" \
   --llm-lite-top-n "$LLM_LITE_TOP_N" \
+  --llm-cache "$LLM_CACHE" \
   --llm-batch-size "$LLM_BATCH_SIZE" \
   --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
   --llm-batch-delay-seconds "$LLM_BATCH_DELAY_SECONDS" \
@@ -81,6 +83,7 @@ if [[ "$ESTIMATE_FIRST" == "1" ]]; then
     --llm-top-n "$LLM_TOP_N" \
     --llm-core-top-n "$LLM_CORE_TOP_N" \
     --llm-lite-top-n "$LLM_LITE_TOP_N" \
+    --llm-cache "$LLM_CACHE" \
     --llm-batch-size "$LLM_BATCH_SIZE" \
     --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
     --estimate-llm-requests
