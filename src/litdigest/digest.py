@@ -630,6 +630,22 @@ def sanitize_list_field(value: Any, max_items: int, forbidden_tokens: set[str]) 
     return out
 
 
+def trim_clean_sentence(text: str, max_len: int) -> str:
+    cleaned = collapse_whitespace(text)
+    if len(cleaned) <= max_len:
+        return cleaned
+    # Prefer ending at the last sentence boundary before max_len.
+    window = cleaned[:max_len]
+    last_punct = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    if last_punct >= int(max_len * 0.6):
+        return window[: last_punct + 1].strip()
+    # Otherwise trim at last word boundary and add ellipsis.
+    last_space = window.rfind(" ")
+    if last_space >= int(max_len * 0.6):
+        return window[:last_space].rstrip(" ,;:") + "..."
+    return window.rstrip(" ,;:") + "..."
+
+
 def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]:
     cleaned = dict(row)
     forbidden_tokens = {
@@ -656,9 +672,9 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
             max_items=3,
             forbidden_tokens=forbidden_tokens,
         )
-        cleaned["headline_result"] = collapse_whitespace(str(cleaned.get("headline_result", "")))[:280]
-        cleaned["trial_n"] = collapse_whitespace(str(cleaned.get("trial_n", "")))[:80]
-        cleaned["major_limitation"] = collapse_whitespace(str(cleaned.get("major_limitation", "")))[:220]
+        cleaned["headline_result"] = collapse_whitespace(str(cleaned.get("headline_result", "")))
+        cleaned["trial_n"] = collapse_whitespace(str(cleaned.get("trial_n", "")))
+        cleaned["major_limitation"] = collapse_whitespace(str(cleaned.get("major_limitation", "")))
         cleaned["clinical_takeaway"] = sanitize_list_field(
             value=cleaned.get("clinical_takeaway"),
             max_items=3,
@@ -671,7 +687,7 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
         if not cleaned["clinical_takeaway"]:
             cleaned["clinical_takeaway"] = ["Monitor emerging evidence before changing practice."]
     else:
-        cleaned["one_line_summary"] = collapse_whitespace(str(cleaned.get("one_line_summary", "")))[:260]
+        cleaned["one_line_summary"] = collapse_whitespace(str(cleaned.get("one_line_summary", "")))
     cleaned["read_recommendation"] = collapse_whitespace(str(cleaned.get("read_recommendation", "")))
     cleaned["translation_horizon"] = collapse_whitespace(str(cleaned.get("translation_horizon", "")))
     if "action" in cleaned:
