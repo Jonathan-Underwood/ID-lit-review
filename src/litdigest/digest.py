@@ -1343,6 +1343,14 @@ def apply_llm_enrichment(
         "cache_hits": 0,
         "items_enriched": 0,
     }
+    salvage_stats: dict[str, int] = {
+        "reserved_requests": 0,
+        "requests_attempted": 0,
+        "requests_succeeded": 0,
+        "requests_failed": 0,
+        "quota_errors": 0,
+        "items_enriched": 0,
+    }
 
     effective_core_n = llm_core_top_n if llm_core_top_n > 0 else llm_top_n
     core_target = select_core_digest(articles=articles, core_size=effective_core_n)
@@ -1351,6 +1359,12 @@ def apply_llm_enrichment(
     if llm_lite_top_n > 0:
         lite_candidates = [art for art in articles if art.pmid not in core_target_pmids]
         lite_target = lite_candidates[:llm_lite_top_n]
+    reserve_last_request_for_salvage = llm_max_requests > 0 and len(lite_target) > 0
+    reserved_requests = 1 if reserve_last_request_for_salvage else 0
+    regular_phase_request_cap = (
+        max(0, llm_max_requests - reserved_requests) if llm_max_requests > 0 else 0
+    )
+    salvage_stats["reserved_requests"] = reserved_requests
 
     phase_defs: list[tuple[str, list[Article], int]] = [
         ("full", core_target, max(1, llm_batch_size)),
@@ -1382,7 +1396,8 @@ def apply_llm_enrichment(
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
         ]
         while queue and not quota_exhausted:
-            if llm_max_requests > 0 and request_count >= llm_max_requests:
+            cap = regular_phase_request_cap if reserve_last_request_for_salvage else llm_max_requests
+            if cap > 0 and request_count >= cap:
                 max_requests_reached = True
                 break
             batch = queue.pop(0)
@@ -1440,6 +1455,54 @@ def apply_llm_enrichment(
         if quota_exhausted or max_requests_reached:
             break
         run_phase(profile=profile, phase_target=phase_target, batch_size=phase_batch_size)
+
+    # If we hit the regular-phase cap, spend the reserved final request on a lite salvage pass
+    # so unresolved target papers can still get concise one-line summaries.
+    salvage_candidates = [
+        art for art in target if art.pmid not in enrichment_by_pmid
+    ]
+    if (
+        salvage_candidates
+        and not quota_exhausted
+        and reserve_last_request_for_salvage
+        and llm_max_requests > 0
+        and request_count < llm_max_requests
+    ):
+        if request_count > 0 and llm_batch_delay_seconds > 0:
+            time.sleep(llm_batch_delay_seconds)
+        request_count += 1
+        salvage_stats["requests_attempted"] += 1
+        try:
+            salvage_enrichment = gemini_enrich_batch(
+                batch=salvage_candidates,
+                gemini_model=gemini_model,
+                gemini_api_key=gemini_api_key,
+                profile="lite",
+            )
+            for art in salvage_candidates:
+                enrichment = salvage_enrichment.get(art.pmid)
+                if not isinstance(enrichment, dict):
+                    continue
+                enrichment_by_pmid[art.pmid] = enrichment
+                cache[art.pmid] = {
+                    "model": gemini_model,
+                    "profile": "lite",
+                    "enrichment": enrichment,
+                    "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                }
+                enriched_pmids.add(art.pmid)
+                salvage_stats["items_enriched"] += 1
+            salvage_stats["requests_succeeded"] += 1
+            max_requests_reached = request_count >= llm_max_requests
+        except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            salvage_stats["requests_failed"] += 1
+            err = short_error(exc)
+            for art in salvage_candidates:
+                if not any(r.startswith("llm_error:") for r in art.score_reasons):
+                    art.score_reasons.append(f"llm_error:{err}")
+            if is_quota_error(exc):
+                quota_exhausted = True
+                salvage_stats["quota_errors"] += 1
 
     for art in target:
         enrichment = enrichment_by_pmid.get(art.pmid)
@@ -1551,6 +1614,7 @@ def apply_llm_enrichment(
         "error_counts": error_counts,
         "phase_stats": phase_stats,
         "backfill_stats": backfill_stats,
+        "salvage_stats": salvage_stats,
     }
     return articles, len(enriched_pmids), stats
 
@@ -2027,6 +2091,7 @@ def write_run_summary(
                 "error_counts": llm_stats.get("error_counts", {}),
                 "phase_stats": llm_stats.get("phase_stats", {}),
                 "backfill_stats": llm_stats.get("backfill_stats", {}),
+                "salvage_stats": llm_stats.get("salvage_stats", {}),
                 "http_telemetry": llm_stats.get("http_telemetry", {}),
             },
         }
@@ -2343,6 +2408,7 @@ def main(argv: list[str] | None = None) -> int:
         LLM HTTP status counts: {llm_stats.get("http_telemetry", {}).get("http_errors_by_code", {})}
         LLM full phase: target {llm_stats.get("phase_stats", {}).get("full", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("full", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("full", {}).get("requests_attempted", 0)}
         LLM lite phase: target {llm_stats.get("phase_stats", {}).get("lite", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("lite", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("lite", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("lite", {}).get("requests_attempted", 0)}
+        LLM salvage pass: reserved {llm_stats.get("salvage_stats", {}).get("reserved_requests", 0)}, requests {llm_stats.get("salvage_stats", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("salvage_stats", {}).get("items_enriched", 0)}
         LLM core backfill: missing full core {llm_stats.get("backfill_stats", {}).get("missing_full_core_count", 0)}, cache hits {llm_stats.get("backfill_stats", {}).get("cache_hits", 0)}, requests {llm_stats.get("backfill_stats", {}).get("requests_attempted", 0)}
         Markdown: {md_path}
         JSON: {json_path}
