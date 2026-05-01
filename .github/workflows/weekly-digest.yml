@@ -24,8 +24,8 @@ jobs:
       BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
       AUTO_PROCEED: "1"
       ESTIMATE_FIRST: "1"
-      SEND_EMAIL: "1"
-      NO_EMAIL: "0"
+      SEND_EMAIL: "0"
+      NO_EMAIL: "1"
       EMAIL_PROVIDER: "brevo"
       EMAIL_TO_FILE: ""
       EMAIL_BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
