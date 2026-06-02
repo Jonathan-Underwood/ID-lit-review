@@ -12,6 +12,7 @@ abstract: "An automated infectious diseases and acute/general medicine literatur
 license: "BSD-3-Clause"
 version: "0.1.0"
 date-released: "2026-06-02"
+doi: "10.5281/zenodo.20512341"
 keywords:
   - infectious diseases
   - literature surveillance
