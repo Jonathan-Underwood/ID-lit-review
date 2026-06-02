@@ -14,9 +14,6 @@ If you use or adapt this software for academic, clinical, teaching, or research 
 
 Underwood J. ID & GIM Weekly Literature Digest: an automated infectious diseases and general internal medicine literature surveillance workflow. Version 0.1.1. 2026. DOI: https://doi.org/10.5281/zenodo.20512341
 
-
-
-
 ## Disclaimer
 
 This software is intended to support literature surveillance, education, and research workflow development. It does not provide medical advice, does not replace expert clinical judgement, and should not be used as a substitute for formal systematic review, guideline development, or validated clinical decision support.
@@ -31,6 +28,15 @@ Each run generates in `outputs/`:
 - `YYYY-MM-DD_run_summary.json`
 - `YYYY-MM-DD_core_podcast_source.md` (if enabled)
 - `YYYY-MM-DD_core_podcast_source.pdf` (if enabled)
+
+## Example output
+
+A shortened representative example is available in the `examples/` directory:
+
+- [Example digest excerpt, Markdown](examples/example-digest-excerpt.md)
+- [Example digest excerpt, PDF](examples/example-digest-excerpt.pdf)
+
+The example is provided to demonstrate the output format only. It is not a clinical recommendation, systematic review, guideline, or complete literature update. Generated summaries and prioritisation scores require human verification.
 
 ## Quick Start (Local)
 
