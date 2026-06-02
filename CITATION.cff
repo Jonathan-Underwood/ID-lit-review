@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use or adapt this software for academic, clinical, teaching, or research purposes, please cite it as below."
+title: "ID & GIM Weekly Literature Digest"
+type: software
+authors:
+  - family-names: "Underwood"
+    given-names: "Jonathan"
+    orcid: "https://orcid.org/0000-0001-6963-2821"
+repository-code: "https://github.com/Jonathan-Underwood/ID-lit-review"
+url: "https://github.com/Jonathan-Underwood/ID-lit-review"
+abstract: "An automated infectious diseases and acute/general medicine literature surveillance workflow that retrieves recent PubMed records, prioritises articles using configurable rules, and generates weekly digest outputs."
+license: "BSD-3-Clause"
+version: "0.1.0"
+date-released: "2026-06-02"
+keywords:
+  - infectious diseases
+  - literature surveillance
+  - PubMed
+  - evidence surveillance
+  - clinical education
