@@ -1,5 +1,7 @@
 # ID & GIM Weekly Literature Digest
 
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.20512341-blue)](https://doi.org/10.5281/zenodo.20512341)
+
 Automated weekly literature triage for infectious diseases + general medicine.
 
 ## Licence
@@ -10,9 +12,10 @@ This project is released under the BSD 3-Clause Licence. See the LICENSE file fo
 
 If you use or adapt this software for academic, clinical, teaching, or research purposes, please cite the repository or archived release:
 
-Underwood J. ID & GIM Weekly Literature Digest: an automated infectious diseases and general internal medicine literature surveillance workflow. 2026. Available from: https://github.com/Jonathan-Underwood/ID-lit-review
+Underwood J. ID & GIM Weekly Literature Digest: an automated infectious diseases and general internal medicine literature surveillance workflow. Version 0.1.1. 2026. DOI: https://doi.org/10.5281/zenodo.20512341
 
-[![DOI](https://zenodo.org/badge/1168253806.svg)](https://doi.org/10.5281/zenodo.20512341)
+
+
 
 ## Disclaimer
 
