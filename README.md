@@ -1,4 +1,4 @@
-# ID Weekly Literature Digest
+# ID & GIM Weekly Literature Digest
 
 Automated weekly literature triage for infectious diseases + general medicine.
 
@@ -10,7 +10,7 @@ This project is released under the BSD 3-Clause Licence. See the LICENSE file fo
 
 If you use or adapt this software for academic, clinical, teaching, or research purposes, please cite the repository or archived release:
 
-Underwood J. ID Weekly Literature Digest: an automated infectious diseases literature surveillance workflow. 2026. Available from: https://github.com/Jonathan-Underwood/ID-lit-review
+Underwood J. ID & GIM Weekly Literature Digest: an automated infectious diseases and general internal medicine literature surveillance workflow. 2026. Available from: https://github.com/Jonathan-Underwood/ID-lit-review
 
 ## Disclaimer
 
