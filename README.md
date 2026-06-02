@@ -12,6 +12,8 @@ If you use or adapt this software for academic, clinical, teaching, or research 
 
 Underwood J. ID & GIM Weekly Literature Digest: an automated infectious diseases and general internal medicine literature surveillance workflow. 2026. Available from: https://github.com/Jonathan-Underwood/ID-lit-review
 
+[![DOI](https://zenodo.org/badge/1168253806.svg)](https://doi.org/10.5281/zenodo.20512341)
+
 ## Disclaimer
 
 This software is intended to support literature surveillance, education, and research workflow development. It does not provide medical advice, does not replace expert clinical judgement, and should not be used as a substitute for formal systematic review, guideline development, or validated clinical decision support.
