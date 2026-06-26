@@ -13,6 +13,14 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
 
 - LLM summary success: 100.0% (40/40)
 
+## At A Glance
+
+- **Top signal:** Fast Antimicrobial Susceptibility Testing for Gram-Negative Bacteremia: Rapid phenotypic AST was not superior to standard testing for the primary DOOR outcome.
+- **ID highlight:** Fast Antimicrobial Susceptibility Testing for Gram-Negative Bacteremia: Rapid AST may still help selected high-risk resistant infection pathways.
+- **General medicine highlight:** Efficacy and safety of the CD40 ligand inhibitor dapirolizumab pegol in systemic lupus erythematosus: Dapirolizumab pegol improved BICLA response at week 48.
+- **Practice watch:** Durability of BIC/FTC/Lenacapavir in HIV: Longer-acting HIV regimens remain an important implementation watch.
+- **Negative or neutral signal:** Fast Antimicrobial Susceptibility Testing for Gram-Negative Bacteremia: Overall clinical superiority was not shown in the randomized trial.
+
 ## Core Digest (10-15 mins)
 
 1. **Fast Antimicrobial Susceptibility Testing for Gram-Negative Bacteremia: The FAST Randomized Clinical Trial.**
@@ -113,7 +121,7 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Broadly neutralising antibodies (bNAbs) represent a promising investigational approach to achieve sustained viral control without daily ART.
     - Demonstrating the efficacy of long-acting bNAbs in maintaining ART-free viral suppression could significantly impact the future management and quality of life for people with HIV.
 
-    **Headline result:** Long-acting bNAbs (3BNC117-LS and 10-1074-LS) significantly reduced viral rebound, with 75% of participants in the bNAb arm remaining virally suppressed at 20 weeks post-ART interruption compared to 11% in the placebo arm (HR 0.09; 95% CI 0.04-0.21, p\<0.0001).
+    **Headline result:** Long-acting bNAbs (3BNC117-LS and 10-1074-LS) significantly reduced viral rebound, with 75% of participants in the bNAb arm remaining virally suppressed at 20 weeks post-ART interruption compared to 11% in the placebo arm (HR 0.09; 95% CI 0.04-0.21, p<0.0001).
 
     **Major limitation:** The study population was highly selected (early-stage HIV, virally suppressed, no viral insensitivity to 10-1074), limiting the generalizability of these findings to broader HIV populations.
 
@@ -141,7 +149,7 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Pre-existing resistance-associated mutations (RAMs) can complicate treatment selection and lead to virologic failure in people living with HIV.
     - Understanding the efficacy of new regimens in the presence of common baseline RAMs is crucial for optimizing treatment strategies for virologically suppressed patients.
 
-    **Headline result:** At week 48, switching to daily DOR/ISL (100/0.25 mg) maintained HIV-1 RNA \<50 copies/mL in "\>=88%" of participants, with baseline NNRTI RAMs and/or M184I/V in proviral DNA not impacting virologic outcomes.
+    **Headline result:** At week 48, switching to daily DOR/ISL (100/0.25 mg) maintained HIV-1 RNA <50 copies/mL in >=88% of participants, with baseline NNRTI RAMs and/or M184I/V in proviral DNA not impacting virologic outcomes.
 
     **Major limitation:** The study population consisted of virologically suppressed participants, limiting generalizability to treatment-naive or treatment-experienced patients with active viremia.
 

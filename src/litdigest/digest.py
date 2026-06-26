@@ -610,6 +610,16 @@ def repair_common_mojibake(text: str) -> str:
     return out
 
 
+def repair_comparison_artifacts(text: str) -> str:
+    # LLMs sometimes quote comparison operators oddly, e.g. '">="5 days'.
+    out = text
+    out = out.replace("≥", ">=").replace("≤", "<=")
+    out = re.sub(r'"([<>]=?)"(?=\d)', r"\1", out)
+    out = re.sub(r'"([<>]=?)(?=\d)', r"\1", out)
+    out = re.sub(r'([<>]=?\d+(?:\.\d+)?%?)"', r"\1", out)
+    return out
+
+
 def sanitize_list_field(value: Any, max_items: int, forbidden_tokens: set[str]) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -636,14 +646,32 @@ def trim_clean_sentence(text: str, max_len: int) -> str:
         return cleaned
     # Prefer ending at the last sentence boundary before max_len.
     window = cleaned[:max_len]
-    last_punct = max(window.rfind("."), window.rfind("!"), window.rfind("?"))
+    last_punct = -1
+    for match in re.finditer(r"[.!?]", window):
+        idx = match.start()
+        ch = match.group(0)
+        prev_ch = window[idx - 1] if idx > 0 else ""
+        next_ch = window[idx + 1] if idx + 1 < len(window) else ""
+        if ch == "." and (prev_ch.isdigit() or next_ch.isdigit()):
+            continue
+        if ch == "." and window[:idx].lower().endswith("vs"):
+            continue
+        last_punct = idx
     if last_punct >= int(max_len * 0.6):
         return window[: last_punct + 1].strip()
     # Otherwise trim at last word boundary and add ellipsis.
     last_space = window.rfind(" ")
     if last_space >= int(max_len * 0.6):
-        return window[:last_space].rstrip(" ,;:") + "..."
-    return window.rstrip(" ,;:") + "..."
+        trimmed = window[:last_space].rstrip(" ,;:")
+    else:
+        trimmed = window.rstrip(" ,;:")
+    trimmed = re.sub(
+        r"(\b(vs\.?|versus|compared with|compared to|and|or|with|of|for|to)|\b[A-Za-z]\s*=)$",
+        "",
+        trimmed,
+        flags=re.IGNORECASE,
+    ).rstrip(" ,;:")
+    return trimmed + "..."
 
 
 def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]:
@@ -708,7 +736,7 @@ def format_read_recommendation(value: str) -> str:
 
 
 def collapse_whitespace(text: str) -> str:
-    repaired = repair_common_mojibake(text or "")
+    repaired = repair_comparison_artifacts(repair_common_mojibake(text or ""))
     return re.sub(r"\s+", " ", repaired).strip()
 
 
@@ -756,8 +784,8 @@ def detect_mojibake_warnings(articles: list[Article], limit: int = 25) -> list[s
 
 def escape_markdown_inline(text: str) -> str:
     # Prevent title text from accidentally triggering markdown formatting.
-    escaped = text.replace("\\", "\\\\")
-    for ch in ["*", "_", "`", "[", "]", "<", ">"]:
+    escaped = repair_comparison_artifacts(repair_common_mojibake(text or "")).replace("\\", "\\\\")
+    for ch in ["*", "_", "`", "[", "]"]:
         escaped = escaped.replace(ch, f"\\{ch}")
     return escaped
 
@@ -1778,6 +1806,73 @@ def select_core_digest(articles: list[Article], core_size: int = 15) -> list[Art
     return articles[:core_size]
 
 
+def _at_a_glance_text(art: Article) -> str:
+    title = trim_clean_sentence(art.title.rstrip("."), 80)
+    enrichment = art.llm_enrichment if isinstance(art.llm_enrichment, dict) else {}
+    headline = str(enrichment.get("headline_result") or enrichment.get("one_line_summary") or "").strip()
+    if not headline:
+        headline = "High-priority paper in this week's ranked digest."
+    return f"{title}: {trim_clean_sentence(headline, 175)}"
+
+
+def build_at_a_glance(core: list[Article], max_items: int = 5) -> list[tuple[str, str]]:
+    if max_items <= 0:
+        return []
+
+    preferred = [
+        art
+        for art in core
+        if isinstance(art.llm_enrichment, dict)
+        and normalize(str(art.llm_enrichment.get("read_recommendation", ""))) in {"read_now", "read now"}
+    ]
+    candidates = preferred + [art for art in core if art not in preferred]
+    used_pmids: set[str] = set()
+    bullets: list[tuple[str, str]] = []
+
+    def add_first(label: str, predicate: Any) -> None:
+        if len(bullets) >= max_items:
+            return
+        for art in candidates:
+            if art.pmid in used_pmids or not predicate(art):
+                continue
+            bullets.append((label, _at_a_glance_text(art)))
+            used_pmids.add(art.pmid)
+            return
+
+    add_first("Top signal", lambda _art: True)
+    add_first("ID highlight", lambda art: "infectious" in art.journal_group)
+    add_first("General medicine highlight", lambda art: art.journal_group == "general_medicine_acute_care")
+    add_first("Practice watch", lambda art: art.translation_horizon == "0-12 months")
+
+    negative_re = re.compile(
+        r"\b(no significant|did not|not superior|not improve|non[- ]?inferior|similar|no difference|missed)\b",
+        re.IGNORECASE,
+    )
+    add_first(
+        "Negative or neutral signal",
+        lambda art: bool(
+            negative_re.search(
+                " ".join(
+                    [
+                        str((art.llm_enrichment or {}).get("headline_result", "")),
+                        str((art.llm_enrichment or {}).get("major_limitation", "")),
+                    ]
+                )
+            )
+        ),
+    )
+
+    for art in candidates:
+        if len(bullets) >= max_items:
+            break
+        if art.pmid in used_pmids:
+            continue
+        bullets.append(("Also worth noting", _at_a_glance_text(art)))
+        used_pmids.add(art.pmid)
+
+    return bullets
+
+
 def parse_pubmed_records(root: ET.Element) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for article in root.findall(".//PubmedArticle"):
@@ -1947,6 +2042,13 @@ def write_outputs(
             handle.write(
                 f"- LLM summary success: {pct:.1f}% ({enriched}/{target})\n\n"
             )
+
+        at_a_glance = build_at_a_glance(core)
+        if at_a_glance:
+            handle.write("## At A Glance\n\n")
+            for label, text in at_a_glance:
+                handle.write(f"- **{label}:** {escape_markdown_inline(text)}\n")
+            handle.write("\n")
 
         handle.write("## Core Digest (10-15 mins)\n\n")
         for i, art in enumerate(core, start=1):

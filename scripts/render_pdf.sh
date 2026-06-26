@@ -19,7 +19,7 @@ if [[ -z "$RUN_DATE" ]]; then
   RUN_DATE="$(date +%Y-%m-%d)"
 fi
 RUN_DATE_DDMMYYYY="$(echo "$RUN_DATE" | awk -F- '{print $3 "-" $2 "-" $1}')"
-PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.1 April 2026"
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.2 June 2026"
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
@@ -57,9 +57,9 @@ normalize_unicode_for_pdf() {
   fi
   local tmp_norm
   tmp_norm="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
-  perl -Mutf8 -CS -pe 's/CCR5Î32\/Î32/CCR5Δ32\/Δ32/gi; s/CCR5Î\x{0094}32\/Î\x{0094}32/CCR5Δ32\/Δ32/gi; s/Î32/Δ32/g; s/Î\x{0094}/Δ/g; s/Î”/Δ/g; s/Î±/α/g; s/Î²/β/g; s/Î³/γ/g; s/Î¼/μ/g; s/â\x{0089}¥/≥/g; s/â\x{0089}¤/≤/g; s/â‰¥/≥/g; s/â‰¤/≤/g; s/â¥/≥/g; s/â¤/≤/g; s/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
-  if [[ "${PDF_ASCII_MATH_SYMBOLS:-0}" == "1" ]]; then
-    perl -Mutf8 -CS -pe 's/≥/>=/g; s/≤/<=/g;' "$tmp_norm" > "${tmp_norm}.ascii"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/CCR5Î32\/Î32/CCR5Δ32\/Δ32/gi; s/CCR5Î\x{0094}32\/Î\x{0094}32/CCR5Δ32\/Δ32/gi; s/Î32/Δ32/g; s/Î\x{0094}/Δ/g; s/Î”/Δ/g; s/Î±/α/g; s/Î²/β/g; s/Î³/γ/g; s/Î¼/μ/g; s/â\x{0089}¥/≥/g; s/â\x{0089}¤/≤/g; s/â‰¥/≥/g; s/â‰¤/≤/g; s/â¥/≥/g; s/â¤/≤/g; s/(\d)·(\d)/$1.$2/g; s/β/beta/g; s/α/alpha/g; s/γ/gamma/g; s/μ/mu/g; s/⁺/+/g; s/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]//g;' "$TMP_MD" > "$tmp_norm"
+  if [[ "${PDF_ASCII_MATH_SYMBOLS:-1}" == "1" ]]; then
+    perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/≥/>=/g; s/≤/<=/g;' "$tmp_norm" > "${tmp_norm}.ascii"
     mv "${tmp_norm}.ascii" "$tmp_norm"
   fi
   rm -f "$TMP_MD"
@@ -70,6 +70,43 @@ normalize_unicode_for_pdf() {
 if [[ "${PDF_NORMALIZE_UNICODE:-1}" == "1" ]]; then
   normalize_unicode_for_pdf
 fi
+
+shorten_links_for_pdf() {
+  # Keep source markdown explicit, but use compact link labels in PDFs.
+  if [[ "${PDF_SHORT_LINK_LABELS:-1}" != "1" ]]; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_links
+  tmp_links="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's{PubMed:\s*\[(https://pubmed\.ncbi\.nlm\.nih\.gov/\d+/)\]\(\1\)}{PubMed: [PubMed]($1)}g; s{DOI:\s*\[(https://doi\.org/[^)\s]+)\]\(\1\)}{DOI: [DOI]($1)}g; s{PubMed:\s*(https://pubmed\.ncbi\.nlm\.nih\.gov/\d+/)}{PubMed: [PubMed]($1)}g; s{DOI:\s*(https://doi\.org/\S+)}{DOI: [DOI]($1)}g;' "$TMP_MD" > "$tmp_links"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_links"
+  PDF_SOURCE="$TMP_MD"
+}
+
+add_pdf_page_breaks() {
+  # Source markdown stays continuous; the PDF starts the extended digest on a new page.
+  if [[ "${PDF_PAGE_BREAK_BEFORE_EXTENDED:-1}" != "1" ]]; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_breaks
+  tmp_breaks="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/^## Extended Digest/\\newpage\n\n## Extended Digest/' "$TMP_MD" > "$tmp_breaks"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_breaks"
+  PDF_SOURCE="$TMP_MD"
+}
+
+shorten_links_for_pdf
+add_pdf_page_breaks
 
 cleanup() {
   [[ -n "$TMP_MD" ]] && rm -f "$TMP_MD"
@@ -122,7 +159,7 @@ run_pandoc_pdf() {
       HAS_LASTPAGE="0"
     fi
 
-    TMP_TEX_HEADER_FOOTER_ONLY="$(mktemp "${TMPDIR:-/tmp}/footerstyle.XXXXXX.tex")"
+    TMP_TEX_HEADER_FOOTER_ONLY="$(mktemp "${TMPDIR:-/tmp}/footerstyle.XXXXXX")"
     if [[ "$HAS_LASTPAGE" == "1" ]]; then
       cat > "$TMP_TEX_HEADER_FOOTER_ONLY" <<EOF
 \usepackage{fancyhdr}
@@ -157,7 +194,7 @@ EOF
     fi
     base_args+=(--include-in-header="$TMP_TEX_HEADER_FOOTER_ONLY")
 
-    TMP_TEX_HEADER="$(mktemp "${TMPDIR:-/tmp}/linkstyle.XXXXXX.tex")"
+    TMP_TEX_HEADER="$(mktemp "${TMPDIR:-/tmp}/linkstyle.XXXXXX")"
     if [[ "$engine" == "xelatex" || "$engine" == "lualatex" ]]; then
       cat > "$TMP_TEX_HEADER" <<EOF
 \usepackage{fontspec}
