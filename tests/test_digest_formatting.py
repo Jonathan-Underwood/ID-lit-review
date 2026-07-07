@@ -68,8 +68,94 @@ class MarkdownFormattingTests(unittest.TestCase):
 
         self.assertEqual(
             build_at_a_glance([article], max_items=1),
-            [("Top signal", "Important Trial: Treatment improved the primary outcome compared with placebo.")],
+            [("General medicine highlight (core #1)", "Treatment improved the primary outcome compared with placebo.")],
         )
+
+    def test_at_a_glance_compacts_long_headlines(self) -> None:
+        article = Article(
+            pmid="1",
+            title="Screening Trial.",
+            journal="Lancet",
+            pub_date="01-01-2026",
+            abstract="Abstract",
+            article_types=["Journal Article"],
+            doi=None,
+            linked_comment_pmids=[],
+            journal_group="general_medicine_acute_care",
+            score=10,
+            score_reasons=[],
+            category="Clinical/Translational (0-12 months likely)",
+            translation_horizon="0-12 months",
+            rule_score=10,
+            llm_score=0,
+            llm_enrichment={
+                "headline_result": (
+                    "Phone-based screening was non-inferior to home-based screening for overall "
+                    "tuberculosis detection (rate difference 0.73 [95% CI 0.05-1.41]) among "
+                    "survivors and contacts, but home-based screening detected a higher recurrence "
+                    "rate in survivors."
+                ),
+                "read_recommendation": "read_now",
+            },
+        )
+
+        self.assertEqual(
+            build_at_a_glance([article], max_items=1),
+            [
+                (
+                    "General medicine highlight (core #1)",
+                    "Phone-based screening was non-inferior to home-based screening for overall tuberculosis detection among survivors and contacts.",
+                )
+            ],
+        )
+
+    def test_successful_noninferiority_is_not_negative_signal(self) -> None:
+        top_article = Article(
+            pmid="1",
+            title="Top Trial.",
+            journal="Lancet",
+            pub_date="01-01-2026",
+            abstract="Abstract",
+            article_types=["Journal Article"],
+            doi=None,
+            linked_comment_pmids=[],
+            journal_group="general_medicine_acute_care",
+            score=10,
+            score_reasons=[],
+            category="Clinical/Translational (0-12 months likely)",
+            translation_horizon="0-12 months",
+            rule_score=10,
+            llm_score=0,
+            llm_enrichment={
+                "headline_result": "Treatment improved the primary outcome compared with placebo.",
+                "read_recommendation": "read_now",
+            },
+        )
+        noninferiority_article = Article(
+            pmid="2",
+            title="Noninferiority Trial.",
+            journal="Lancet",
+            pub_date="01-01-2026",
+            abstract="Abstract",
+            article_types=["Journal Article"],
+            doi=None,
+            linked_comment_pmids=[],
+            journal_group="unknown",
+            score=9,
+            score_reasons=[],
+            category="Important Basic/Mechanistic Science (>12 months)",
+            translation_horizon=">12 months",
+            rule_score=9,
+            llm_score=0,
+            llm_enrichment={
+                "headline_result": "The regimen was non-inferior to standard care for viral suppression.",
+                "read_recommendation": "read_if_time",
+            },
+        )
+
+        labels = [label for label, _text in build_at_a_glance([top_article, noninferiority_article])]
+
+        self.assertNotIn("Negative or neutral signal (core #2)", labels)
 
     def test_trimming_does_not_stop_on_decimal_points(self) -> None:
         text = "Result was 13.9% vs 11.1%; HR 1.25; P = 0.08 in the main analysis."

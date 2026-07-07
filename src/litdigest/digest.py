@@ -1806,16 +1806,48 @@ def select_core_digest(articles: list[Article], core_size: int = 15) -> list[Art
     return articles[:core_size]
 
 
+AT_A_GLANCE_TEXT_MAX_LEN = 180
+
+
+def _compact_at_a_glance_text(text: str, max_len: int = AT_A_GLANCE_TEXT_MAX_LEN) -> str:
+    cleaned = collapse_whitespace(text)
+    if len(cleaned) <= max_len:
+        return cleaned
+
+    compact = re.sub(r"\s*\([^()]{24,}\)", "", cleaned)
+    compact = collapse_whitespace(compact)
+    if len(compact) <= max_len:
+        return compact
+
+    for pattern in (
+        r",\s+(?:with|but|though|although|while)\b",
+        r"\s+at\s+\d+(?:\s+and\s+\d+)?\s+(?:weeks?|months?|years?)\b",
+        r";",
+    ):
+        match = re.search(pattern, compact, flags=re.IGNORECASE)
+        if match and match.start() >= int(max_len * 0.35):
+            return compact[: match.start()].rstrip(" ,;:") + "."
+
+    compared = re.search(r"\bcompared (?:with|to) [^,;.()]+", compact, flags=re.IGNORECASE)
+    if compared and compared.end() <= max_len + 120:
+        return compact[: compared.end()].rstrip(" ,;:") + "."
+
+    return trim_clean_sentence(compact, max_len)
+
+
 def _at_a_glance_text(art: Article) -> str:
-    title = trim_clean_sentence(art.title.rstrip("."), 80)
     enrichment = art.llm_enrichment if isinstance(art.llm_enrichment, dict) else {}
     headline = str(enrichment.get("headline_result") or enrichment.get("one_line_summary") or "").strip()
     if not headline:
-        headline = "High-priority paper in this week's ranked digest."
-    return f"{title}: {trim_clean_sentence(headline, 175)}"
+        headline = f"High-priority paper: {art.title.rstrip('.')}"
+    return _compact_at_a_glance_text(headline)
 
 
-def build_at_a_glance(core: list[Article], max_items: int = 5) -> list[tuple[str, str]]:
+def _at_a_glance_label(label: str, rank: int) -> str:
+    return f"{label} (core #{rank})"
+
+
+def build_at_a_glance(core: list[Article], max_items: int = 4) -> list[tuple[str, str]]:
     if max_items <= 0:
         return []
 
@@ -1825,7 +1857,9 @@ def build_at_a_glance(core: list[Article], max_items: int = 5) -> list[tuple[str
         if isinstance(art.llm_enrichment, dict)
         and normalize(str(art.llm_enrichment.get("read_recommendation", ""))) in {"read_now", "read now"}
     ]
-    candidates = preferred + [art for art in core if art not in preferred]
+    preferred_pmids = {art.pmid for art in preferred}
+    candidates = preferred + [art for art in core if art.pmid not in preferred_pmids]
+    core_rank_by_pmid = {art.pmid: rank for rank, art in enumerate(core, start=1)}
     used_pmids: set[str] = set()
     bullets: list[tuple[str, str]] = []
 
@@ -1835,17 +1869,17 @@ def build_at_a_glance(core: list[Article], max_items: int = 5) -> list[tuple[str
         for art in candidates:
             if art.pmid in used_pmids or not predicate(art):
                 continue
-            bullets.append((label, _at_a_glance_text(art)))
+            rank = core_rank_by_pmid.get(art.pmid, len(bullets) + 1)
+            bullets.append((_at_a_glance_label(label, rank), _at_a_glance_text(art)))
             used_pmids.add(art.pmid)
             return
 
-    add_first("Top signal", lambda _art: True)
     add_first("ID highlight", lambda art: "infectious" in art.journal_group)
     add_first("General medicine highlight", lambda art: art.journal_group == "general_medicine_acute_care")
     add_first("Practice watch", lambda art: art.translation_horizon == "0-12 months")
 
     negative_re = re.compile(
-        r"\b(no significant|did not|not superior|not improve|non[- ]?inferior|similar|no difference|missed)\b",
+        r"\b(no significant|did not|not superior|not improve|similar|no difference|missed)\b",
         re.IGNORECASE,
     )
     add_first(
@@ -1867,7 +1901,8 @@ def build_at_a_glance(core: list[Article], max_items: int = 5) -> list[tuple[str
             break
         if art.pmid in used_pmids:
             continue
-        bullets.append(("Also worth noting", _at_a_glance_text(art)))
+        rank = core_rank_by_pmid.get(art.pmid, len(bullets) + 1)
+        bullets.append((_at_a_glance_label("Also worth noting", rank), _at_a_glance_text(art)))
         used_pmids.add(art.pmid)
 
     return bullets
