@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import email.utils
+import html as html_lib
 import json
 import os
 import random
@@ -20,6 +22,8 @@ from typing import Any
 
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
+NATHNAC_OUTBREAKS_RSS_URL = "https://travelhealthpro.org.uk/rss-outbreaks.php"
+NATHNAC_OUTBREAKS_URL = "https://travelhealthpro.org.uk/outbreaks"
 
 _http_telemetry: dict[str, Any] = {}
 
@@ -90,6 +94,14 @@ class Article:
     llm_enrichment: dict[str, Any] | None
 
 
+@dataclass
+class OutbreakItem:
+    title: str
+    description: str
+    pub_date: str
+    link: str
+
+
 def load_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
@@ -137,6 +149,95 @@ def ncbi_get(url: str, params: dict[str, str]) -> bytes:
     )
     with urllib.request.urlopen(req, timeout=45) as resp:
         return resp.read()
+
+
+def clean_outbreak_description(text: str, max_len: int = 280) -> str:
+    cleaned = html_lib.unescape(text)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = collapse_whitespace(cleaned)
+    cleaned = re.sub(
+        r"\bPlease see our [^.]*? for further details(?: on [^.]+)?\.",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
+    cleaned = collapse_whitespace(cleaned).strip(" ;")
+    return trim_clean_sentence(cleaned, max_len)
+
+
+def parse_rss_pub_date(value: str) -> dt.date | None:
+    try:
+        parsed = email.utils.parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(dt.timezone.utc)
+    return parsed.date()
+
+
+def parse_nathnac_outbreaks_rss(
+    payload: bytes | str,
+    max_items: int = 5,
+    start_date: dt.date | None = None,
+    end_date: dt.date | None = None,
+) -> list[OutbreakItem]:
+    if max_items <= 0:
+        return []
+    if isinstance(payload, bytes):
+        root = ET.fromstring(payload)
+    else:
+        root = ET.fromstring(payload.encode("utf-8"))
+
+    outbreaks: list[OutbreakItem] = []
+    for item in root.findall("./channel/item"):
+        title = collapse_whitespace(html_lib.unescape(item.findtext("title") or ""))
+        description = clean_outbreak_description(item.findtext("description") or "")
+        pub_date = collapse_whitespace(item.findtext("pubDate") or "")
+        item_date = parse_rss_pub_date(pub_date)
+        if start_date and item_date and item_date < start_date:
+            continue
+        if end_date and item_date and item_date > end_date:
+            continue
+        link = collapse_whitespace(item.findtext("link") or "") or NATHNAC_OUTBREAKS_URL
+        if not title or not description:
+            continue
+        outbreaks.append(
+            OutbreakItem(
+                title=title,
+                description=description,
+                pub_date=pub_date,
+                link=link,
+            )
+        )
+        if len(outbreaks) >= max_items:
+            break
+    return outbreaks
+
+
+def fetch_nathnac_outbreaks(
+    max_items: int = 5,
+    timeout: int = 20,
+    start_date: dt.date | None = None,
+    end_date: dt.date | None = None,
+) -> list[OutbreakItem]:
+    if max_items <= 0:
+        return []
+    req = urllib.request.Request(
+        NATHNAC_OUTBREAKS_RSS_URL,
+        headers={
+            "Accept": "application/rss+xml, application/xml;q=0.9, */*;q=0.8",
+            "User-Agent": "id-literature-digest/1.0",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        payload = resp.read()
+    return parse_nathnac_outbreaks_rss(
+        payload,
+        max_items=max_items,
+        start_date=start_date,
+        end_date=end_date,
+    )
 
 
 def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: int = 60) -> dict[str, Any]:
@@ -1787,6 +1888,56 @@ def doi_link(doi: str | None) -> str:
     return f"https://doi.org/{doi}" if doi else ""
 
 
+def article_links_markdown(art: Article) -> str:
+    return f"[PubMed]({pubmed_link(art.pmid)})"
+
+
+def compact_trial_n(value: str, max_len: int = 48) -> str:
+    cleaned = collapse_whitespace(value)
+    cleaned = re.sub(r"^n\s*=\s*", "", cleaned, flags=re.IGNORECASE)
+    if len(cleaned) > max_len:
+        cleaned = re.sub(r"\s*\([^)]*\)", "", cleaned)
+    cleaned = collapse_whitespace(cleaned).strip(" .;,")
+    if len(cleaned) > max_len:
+        for sep in (",", ";", "."):
+            idx = cleaned.find(sep)
+            if int(max_len * 0.35) <= idx <= max_len:
+                cleaned = cleaned[:idx].strip(" .;,")
+                break
+    if len(cleaned) > max_len:
+        cleaned = trim_clean_sentence(cleaned, max_len).removesuffix("...").strip(" .;,")
+    return f"n={cleaned}" if cleaned else ""
+
+
+def article_metadata_markdown(
+    art: Article,
+    as_of: dt.date,
+    *,
+    include_horizon: bool,
+    include_group: bool = False,
+) -> str:
+    parts = [escape_markdown_inline(art.journal)]
+    if include_group:
+        parts.append(f"Group: {escape_markdown_inline(art.journal_group)}")
+    if is_rct_article(art.article_types, art.title, art.abstract):
+        parts.append("RCT")
+    parts.append(format_date_ddmmyyyy(art.pub_date, as_of))
+    parts.append(
+        f"Score: {art.score} (rule {art.rule_score}"
+        f"{', llm +' + str(art.llm_score) if art.llm_score else ''})"
+    )
+    if include_horizon:
+        parts.append(f"Horizon: {escape_markdown_inline(art.translation_horizon)}")
+    enrichment = art.llm_enrichment if isinstance(art.llm_enrichment, dict) else {}
+    trial_n = str(enrichment.get("trial_n", "")).strip()
+    if trial_n:
+        compact_n = compact_trial_n(trial_n)
+        if compact_n:
+            parts.append(escape_markdown_inline(compact_n))
+    parts.append(article_links_markdown(art))
+    return " | ".join(parts)
+
+
 def has_full_enrichment_payload(enrichment: dict[str, Any] | None) -> bool:
     if not isinstance(enrichment, dict):
         return False
@@ -2030,6 +2181,8 @@ def write_outputs(
     as_of: dt.date,
     days: int,
     llm_stats: dict[str, Any] | None = None,
+    outbreaks: list[OutbreakItem] | None = None,
+    outbreaks_max_items: int = 10,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     md_path = output_dir / f"{as_of.isoformat()}_digest.md"
@@ -2066,17 +2219,30 @@ def write_outputs(
 
     with md_path.open("w", encoding="utf-8") as handle:
         handle.write(f"# Weekly ID + General Medicine Literature Digest ({as_of.strftime('%d-%m-%Y')})\n\n")
-        handle.write(f"- Window: last {days} days\n")
-        handle.write(f"- Core digest items: {len(core)}\n")
-        handle.write(f"- Extended digest items: {len(extended)}\n")
-        handle.write(f"- Total papers scored: {len(articles)}\n\n")
+        summary_bits = [
+            f"Window: last {days} days",
+            f"Scored papers: {len(articles)}",
+            f"Core: {len(core)}",
+            f"Extended: {len(extended)}",
+        ]
         if llm_stats:
             target = int(llm_stats.get("target_count", 0))
             enriched = int(llm_stats.get("enriched_count", 0))
             pct = (enriched / target * 100.0) if target else 0.0
+            summary_bits.append(f"LLM success: {pct:.1f}% ({enriched}/{target})")
+        handle.write("- " + " | ".join(summary_bits) + "\n\n")
+
+        if outbreaks:
+            handle.write("## Outbreak Watch\n\n")
             handle.write(
-                f"- LLM summary success: {pct:.1f}% ({enriched}/{target})\n\n"
+                f"Recent updates from [NaTHNaC TravelHealthPro outbreaks]({NATHNAC_OUTBREAKS_URL}) "
+                f"in the last {days} days:\n\n"
             )
+            for outbreak in outbreaks:
+                title = escape_markdown_inline(outbreak.title)
+                description = escape_markdown_inline(outbreak.description)
+                handle.write(f"- **{title}:** {description}\n")
+            handle.write("\n")
 
         at_a_glance = build_at_a_glance(core)
         if at_a_glance:
@@ -2085,33 +2251,18 @@ def write_outputs(
                 handle.write(f"- **{label}:** {escape_markdown_inline(text)}\n")
             handle.write("\n")
 
-        handle.write("## Core Digest (10-15 mins)\n\n")
+        handle.write("## Core Digest\n\n")
         for i, art in enumerate(core, start=1):
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
             handle.write("\n")
-            rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
-            handle.write(
-                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date, as_of)} | Score: {art.score} (rule {art.rule_score}"
-                f"{', llm +' + str(art.llm_score) if art.llm_score else ''}) | Translation horizon: {art.translation_horizon}\n"
-            )
+            handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=True)}\n")
             handle.write("\n")
-            p_link = pubmed_link(art.pmid)
-            handle.write(f"    PubMed: [{p_link}]({p_link})\n")
-            handle.write("\n")
-            if art.doi:
-                d_link = doi_link(art.doi)
-                handle.write(f"    DOI: [{d_link}]({d_link})\n")
-            handle.write("\n")    
             read_rec = ""
             if art.llm_enrichment:
-                trial_n = str(art.llm_enrichment.get("trial_n", "")).strip()
-                if trial_n:
-                    handle.write(f"    **Trial n:** {escape_markdown_inline(trial_n)}\n")
-
                 why_points = art.llm_enrichment.get("why_it_matters_points")
                 if isinstance(why_points, list) and why_points:
-                    handle.write("\n    **Why it matters:**\n")
+                    handle.write("    **Why it matters:**\n")
                     for point in why_points:
                         txt = str(point).strip()
                         if txt:
@@ -2143,21 +2294,11 @@ def write_outputs(
                 handle.write(f"\n    **Read priority:** {escape_markdown_inline(read_rec)}\n")
             handle.write("\n---\n\n")
 
-        handle.write("## Extended Digest (up to 60 minutes)\n\n")
+        handle.write("## Extended Digest\n\n")
         for i, art in enumerate(extended, start=1):
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
-            rct_flag = " | RCT |" if is_rct_article(art.article_types, art.title, art.abstract) else " |"
-            handle.write(
-                f"    Journal: {art.journal}{rct_flag} Date: {format_date_ddmmyyyy(art.pub_date, as_of)} | Score: {art.score} (rule {art.rule_score}"
-                f"{', llm +' + str(art.llm_score) if art.llm_score else ''})\n"
-            )
-            handle.write(f"    Journal group: {art.journal_group}\n")
-            p_link = pubmed_link(art.pmid)
-            handle.write(f"    PubMed: [{p_link}]({p_link})\n")
-            if art.doi:
-                d_link = doi_link(art.doi)
-                handle.write(f"    DOI: [{d_link}]({d_link})\n")
+            handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=False, include_group=True)}\n")
             if art.llm_enrichment:
                 lite_summary = str(art.llm_enrichment.get("one_line_summary", "")).strip()
                 if lite_summary:
@@ -2261,6 +2402,7 @@ def run(
     llm_output_tokens_per_paper_estimate: int,
     podcast_source: bool,
     podcast_max_items: int,
+    outbreaks_max_items: int,
 ) -> tuple[Path, Path, Path, int, int, dict[str, Any], Path | None, int]:
     journal_config = load_json(config_dir / "journals.json")
     topic_config = load_json(config_dir / "topics.json")
@@ -2349,12 +2491,25 @@ def run(
         raise RuntimeError(
             f"LLM success rate {llm_stats['success_rate']:.2f} below minimum {llm_min_success_rate:.2f}"
         )
+    outbreaks: list[OutbreakItem] = []
+    if outbreaks_max_items > 0:
+        try:
+            outbreaks = fetch_nathnac_outbreaks(
+                max_items=outbreaks_max_items,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        except Exception as exc:
+            print(f"Warning: could not fetch NaTHNaC outbreaks RSS: {exc}", file=sys.stderr)
+
     md_path, json_path = write_outputs(
         articles,
         output_dir=output_dir,
         as_of=end_date,
         days=days,
         llm_stats=llm_stats if llm_enrich else None,
+        outbreaks=outbreaks,
+        outbreaks_max_items=outbreaks_max_items,
     )
     summary_path = write_run_summary(
         output_dir=output_dir,
@@ -2486,6 +2641,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         default=15,
         help="Number of core papers to include in podcast source document when --podcast-source is set (default: 15).",
     )
+    parser.add_argument(
+        "--outbreaks-max-items",
+        type=int,
+        default=10,
+        help="Maximum recent NaTHNaC outbreak RSS items to include near the top of the digest; set 0 to disable (default: 10).",
+    )
     return parser.parse_args(argv)
 
 
@@ -2525,6 +2686,7 @@ def main(argv: list[str] | None = None) -> int:
             llm_output_tokens_per_paper_estimate=args.llm_output_tokens_per_paper_estimate,
             podcast_source=args.podcast_source,
             podcast_max_items=args.podcast_max_items,
+            outbreaks_max_items=args.outbreaks_max_items,
         )
         print(textwrap.dedent(f"""
         PubMed records retrieved: {retrieved_count} (cap: {args.max_results}, cap reached: {retrieved_count >= args.max_results})

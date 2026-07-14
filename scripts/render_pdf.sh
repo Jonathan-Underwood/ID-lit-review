@@ -19,7 +19,7 @@ if [[ -z "$RUN_DATE" ]]; then
   RUN_DATE="$(date +%Y-%m-%d)"
 fi
 RUN_DATE_DDMMYYYY="$(echo "$RUN_DATE" | awk -F- '{print $3 "-" $2 "-" $1}')"
-PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.2 June 2026"
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.3 July 2026"
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
@@ -167,6 +167,8 @@ run_pandoc_pdf() {
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
+  \setlength{\parskip}{0.42em}
+  \renewcommand{\tightlist}{\setlength{\itemsep}{0.16em}\setlength{\parskip}{0.10em}}
   \sloppy
   \pagestyle{fancy}
   \fancyhf{}
@@ -182,6 +184,8 @@ EOF
 \AtBeginDocument{%
   \small
   \setlength{\emergencystretch}{3em}
+  \setlength{\parskip}{0.42em}
+  \renewcommand{\tightlist}{\setlength{\itemsep}{0.16em}\setlength{\parskip}{0.10em}}
   \sloppy
   \pagestyle{fancy}
   \fancyhf{}

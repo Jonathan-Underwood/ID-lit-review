@@ -34,6 +34,7 @@ SAFE_MODE="${SAFE_MODE:-0}"
 PODCAST_SOURCE="${PODCAST_SOURCE:-1}"
 PODCAST_MAX_ITEMS="${PODCAST_MAX_ITEMS:-15}"
 PODCAST_PDF="${PODCAST_PDF:-1}"
+OUTBREAKS_MAX_ITEMS="${OUTBREAKS_MAX_ITEMS:-10}"
 ESTIMATE_FIRST="${ESTIMATE_FIRST:-1}"
 AUTO_PROCEED="${AUTO_PROCEED:-0}"
 SEND_EMAIL="${SEND_EMAIL:-0}"
@@ -64,7 +65,8 @@ CMD=(
   --llm-batch-delay-seconds "$LLM_BATCH_DELAY_SECONDS" \
   --llm-min-success-rate "$LLM_MIN_SUCCESS_RATE" \
   --llm-max-requests "$LLM_MAX_REQUESTS" \
-  --podcast-max-items "$PODCAST_MAX_ITEMS"
+  --podcast-max-items "$PODCAST_MAX_ITEMS" \
+  --outbreaks-max-items "$OUTBREAKS_MAX_ITEMS"
 )
 
 if [[ "$SAFE_MODE" == "1" ]]; then
