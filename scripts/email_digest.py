@@ -80,8 +80,6 @@ def extract_summary_entries(markdown_text: str) -> tuple[str, list[tuple[str, st
         if title_match:
             current_title = title_match.group(1).strip()
             continue
-        if "PubMed:" not in line:
-            continue
         url_match = pubmed_pat.search(line)
         if not url_match:
             continue
