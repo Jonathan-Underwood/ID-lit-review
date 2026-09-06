@@ -1683,6 +1683,18 @@ def apply_llm_enrichment(
             "split_retries": 0,
             "items_enriched": 0,
         },
+        "full_fallback": {
+            "target_count": 0,
+            "cache_hits": 0,
+            "unresolved_count": 0,
+            "batch_size": max(1, llm_batch_size),
+            "requests_attempted": 0,
+            "requests_succeeded": 0,
+            "requests_failed": 0,
+            "quota_errors": 0,
+            "split_retries": 0,
+            "items_enriched": 0,
+        },
         "lite": {
             "target_count": 0,
             "cache_hits": 0,
@@ -1731,13 +1743,23 @@ def apply_llm_enrichment(
     target: list[Article] = core_target + lite_target
     enrichment_by_pmid: dict[str, dict[str, Any]] = {}
 
-    def run_phase(profile: str, phase_target: list[Article], batch_size: int) -> None:
+    def run_phase(
+        profile: str,
+        phase_target: list[Article],
+        batch_size: int,
+        *,
+        phase_model_override: str | None = None,
+        stats_key: str | None = None,
+    ) -> None:
         nonlocal request_count, max_requests_reached
         if not phase_target:
             return
-        phase_stats[profile]["target_count"] = len(phase_target)
-        phase_stats[profile]["batch_size"] = batch_size
-        phase_model = gemini_model if profile == "full" else effective_lite_model
+        phase_stats_key = stats_key or profile
+        phase_stats[phase_stats_key]["target_count"] = len(phase_target)
+        phase_stats[phase_stats_key]["batch_size"] = batch_size
+        phase_model = phase_model_override or (
+            gemini_model if profile == "full" else effective_lite_model
+        )
         unresolved: list[Article] = []
         for art in phase_target:
             cached = cache.get(art.pmid)
@@ -1748,10 +1770,10 @@ def apply_llm_enrichment(
                 expected_profile=profile,
             ):
                 enrichment_by_pmid[art.pmid] = cached["enrichment"]
-                phase_stats[profile]["cache_hits"] += 1
+                phase_stats[phase_stats_key]["cache_hits"] += 1
                 continue
             unresolved.append(art)
-        phase_stats[profile]["unresolved_count"] = len(unresolved)
+        phase_stats[phase_stats_key]["unresolved_count"] = len(unresolved)
 
         queue: list[list[Article]] = [
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
@@ -1767,7 +1789,7 @@ def apply_llm_enrichment(
             if request_count > 0 and llm_batch_delay_seconds > 0:
                 time.sleep(llm_batch_delay_seconds)
             request_count += 1
-            phase_stats[profile]["requests_attempted"] += 1
+            phase_stats[phase_stats_key]["requests_attempted"] += 1
             try:
                 batch_enrichment = gemini_enrich_batch(
                     batch=batch,
@@ -1790,19 +1812,19 @@ def apply_llm_enrichment(
                     for art in batch:
                         art.score_reasons.append(f"llm_error:{err}")
                     quota_exhausted_models.add(phase_model)
-                    phase_stats[profile]["quota_errors"] += 1
-                    phase_stats[profile]["requests_failed"] += 1
+                    phase_stats[phase_stats_key]["quota_errors"] += 1
+                    phase_stats[phase_stats_key]["requests_failed"] += 1
                     continue
                 if len(batch) > 1 and should_retry_smaller_batch(exc):
                     mid = len(batch) // 2
                     queue.insert(0, batch[mid:])
                     queue.insert(0, batch[:mid])
-                    phase_stats[profile]["split_retries"] += 1
+                    phase_stats[phase_stats_key]["split_retries"] += 1
                     continue
                 err = short_error(exc)
                 for art in batch:
                     art.score_reasons.append(f"llm_error:{err}")
-                phase_stats[profile]["requests_failed"] += 1
+                phase_stats[phase_stats_key]["requests_failed"] += 1
                 continue
 
             for art in batch:
@@ -1819,28 +1841,34 @@ def apply_llm_enrichment(
                     "updated_at": utc_now_iso(),
                 }
                 enriched_pmids.add(art.pmid)
-            phase_stats[profile]["requests_succeeded"] += 1
-            phase_stats[profile]["items_enriched"] += len(batch)
+            phase_stats[phase_stats_key]["requests_succeeded"] += 1
+            phase_stats[phase_stats_key]["items_enriched"] += len(batch)
             save_cache(llm_cache_path, cache)
             print(
-                f"LLM {profile}: checkpointed {len(batch)} item(s); "
+                f"LLM {phase_stats_key}: checkpointed {len(batch)} item(s); "
                 f"{len(cache)} cached total."
             )
 
     run_phase(profile="full", phase_target=core_target, batch_size=max(1, llm_batch_size))
 
     # Flash and Flash-Lite have independent model quotas. If the full model is
-    # exhausted, put unresolved core papers at the front of the lite queue so
-    # the most important section receives fallback summaries before extended
-    # papers consume any of the much larger lite-model allowance.
-    lite_phase_target = list(lite_target)
+    # exhausted, rerun unresolved core papers on Flash-Lite with the same full
+    # appraisal prompt and schema. Only the model changes; core output quality
+    # and structure remain the same.
     if gemini_model in quota_exhausted_models and effective_lite_model != gemini_model:
         unresolved_core = [art for art in core_target if art.pmid not in enrichment_by_pmid]
-        lite_phase_target = unresolved_core + lite_phase_target
+        if not max_requests_reached:
+            run_phase(
+                profile="full",
+                phase_target=unresolved_core,
+                batch_size=max(1, llm_batch_size),
+                phase_model_override=effective_lite_model,
+                stats_key="full_fallback",
+            )
     if not max_requests_reached:
         run_phase(
             profile="lite",
-            phase_target=lite_phase_target,
+            phase_target=lite_target,
             batch_size=max(1, llm_lite_batch_size),
         )
 
@@ -3233,6 +3261,7 @@ def main(argv: list[str] | None = None) -> int:
         LLM HTTP final failures: {llm_stats.get("http_telemetry", {}).get("final_failures", 0)}
         LLM HTTP status counts: {llm_stats.get("http_telemetry", {}).get("http_errors_by_code", {})}
         LLM full phase: target {llm_stats.get("phase_stats", {}).get("full", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("full", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("full", {}).get("requests_attempted", 0)}
+        LLM full fallback on lite model: target {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("cache_hits", 0)}, requests {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("items_enriched", 0)}
         LLM lite phase: target {llm_stats.get("phase_stats", {}).get("lite", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("lite", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("lite", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("lite", {}).get("requests_attempted", 0)}
         LLM salvage pass: reserved {llm_stats.get("salvage_stats", {}).get("reserved_requests", 0)}, requests {llm_stats.get("salvage_stats", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("salvage_stats", {}).get("items_enriched", 0)}
         LLM core backfill: missing full core {llm_stats.get("backfill_stats", {}).get("missing_full_core_count", 0)}, cache hits {llm_stats.get("backfill_stats", {}).get("cache_hits", 0)}, requests {llm_stats.get("backfill_stats", {}).get("requests_attempted", 0)}

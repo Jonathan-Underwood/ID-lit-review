@@ -91,7 +91,9 @@ uses Gemini 3.5 Flash-Lite by default. Override them with `GEMINI_MODEL` and
 `GEMINI_LITE_MODEL` when using `scripts/run_weekly_digest.sh`.
 If the full model exhausts its quota, the separate lite model can continue and
 provide fallback summaries because quota state is tracked per model. Unresolved
-core papers are sent to the front of the lite queue before extended papers.
+core papers retain the complete core appraisal prompt and structured output schema;
+only the model changes to Flash-Lite. Extended papers continue to use the shorter
+lite prompt.
 Core appraisal uses the complete PubMed abstract. Its clinical-impact, method-quality,
 and novelty fields remain internal ranking inputs and are not printed in the PDF.
 

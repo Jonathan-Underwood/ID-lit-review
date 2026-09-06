@@ -335,15 +335,19 @@ class LLMReliabilityTests(unittest.TestCase):
             )
 
         requested_models = [call.kwargs["gemini_model"] for call in enrich.call_args_list]
+        requested_profiles = [call.kwargs["profile"] for call in enrich.call_args_list]
         self.assertEqual(
             requested_models,
             ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-lite"],
         )
+        self.assertEqual(requested_profiles, ["full", "full", "lite"])
         self.assertEqual(enriched_count, 2)
         self.assertEqual(stats["enriched_count"], 2)
         self.assertEqual(stats["success_rate"], 1.0)
         self.assertEqual(stats["quota_exhausted_models"], ["gemini-3.5-flash"])
-        self.assertEqual(stats["phase_stats"]["lite"]["target_count"], 2)
+        self.assertEqual(stats["phase_stats"]["full_fallback"]["target_count"], 1)
+        self.assertEqual(stats["phase_stats"]["full_fallback"]["items_enriched"], 1)
+        self.assertEqual(stats["phase_stats"]["lite"]["target_count"], 1)
         self.assertEqual(stats["salvage_stats"]["requests_attempted"], 0)
         self.assertTrue(all(article.llm_enrichment for article in enriched_articles))
 
