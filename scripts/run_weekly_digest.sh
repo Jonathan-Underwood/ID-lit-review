@@ -31,6 +31,8 @@ LLM_BATCH_SIZE="${LLM_BATCH_SIZE:-1}"
 LLM_LITE_BATCH_SIZE="${LLM_LITE_BATCH_SIZE:-13}"
 LLM_BATCH_DELAY_SECONDS="${LLM_BATCH_DELAY_SECONDS:-30}"
 LLM_MIN_SUCCESS_RATE="${LLM_MIN_SUCCESS_RATE:-0.0}"
+LLM_MIN_EMAIL_SUCCESS_RATE="${LLM_MIN_EMAIL_SUCCESS_RATE:-0.5}"
+LLM_MIN_EMAIL_CORE_ENRICHED="${LLM_MIN_EMAIL_CORE_ENRICHED:-10}"
 LLM_MAX_REQUESTS="${LLM_MAX_REQUESTS:-20}"
 SAFE_MODE="${SAFE_MODE:-0}"
 PODCAST_SOURCE="${PODCAST_SOURCE:-1}"
@@ -144,6 +146,32 @@ if [[ "$PODCAST_SOURCE" == "1" ]]; then
   fi
 fi
 
+EMAIL_QUALITY_GATE_FAILED=0
+if [[ "$SEND_EMAIL" == "1" ]]; then
+  LATEST_SUMMARY="$(ls -1t outputs/*_run_summary.json | head -n 1)"
+  EMAIL_QUALITY_OK="$(
+    python3 -c '
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    summary = json.load(handle)
+actual = summary.get("llm", {}).get("actual", {})
+rate = float(actual.get("success_rate", 0.0))
+minimum = float(sys.argv[2])
+core_enriched = int(actual.get("core_enriched_count", 0))
+minimum_core = int(sys.argv[3])
+print("1" if rate >= minimum and core_enriched >= minimum_core else "0")
+' "$LATEST_SUMMARY" "$LLM_MIN_EMAIL_SUCCESS_RATE" "$LLM_MIN_EMAIL_CORE_ENRICHED"
+  )"
+  if [[ "$EMAIL_QUALITY_OK" != "1" ]]; then
+    echo "Email quality gate failed: require LLM success >= ${LLM_MIN_EMAIL_SUCCESS_RATE} and at least ${LLM_MIN_EMAIL_CORE_ENRICHED} enriched core papers." >&2
+    echo "Digest files will be retained, but email will not be sent." >&2
+    SEND_EMAIL="0"
+    EMAIL_QUALITY_GATE_FAILED=1
+  fi
+fi
+
 if [[ "$SEND_EMAIL" == "1" ]]; then
   if [[ -z "$EMAIL_TO" && -z "$EMAIL_TO_FILE" && -z "$EMAIL_BREVO_LIST_ID" ]]; then
     echo "SEND_EMAIL=1 but EMAIL_TO, EMAIL_TO_FILE, and EMAIL_BREVO_LIST_ID are empty. Skipping email."
@@ -167,4 +195,8 @@ if [[ "$SEND_EMAIL" == "1" ]]; then
   fi
 else
   echo "Email sending disabled for this run."
+fi
+
+if [[ "$EMAIL_QUALITY_GATE_FAILED" == "1" ]]; then
+  exit 1
 fi

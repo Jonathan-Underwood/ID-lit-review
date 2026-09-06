@@ -89,6 +89,9 @@ Required for data + LLM:
 The core appraisal uses Gemini 3.5 Flash and the lightweight extended-digest pass
 uses Gemini 3.5 Flash-Lite by default. Override them with `GEMINI_MODEL` and
 `GEMINI_LITE_MODEL` when using `scripts/run_weekly_digest.sh`.
+If the full model exhausts its quota, the separate lite model can continue and
+provide fallback summaries because quota state is tracked per model. Unresolved
+core papers are sent to the front of the lite queue before extended papers.
 Core appraisal uses the complete PubMed abstract. Its clinical-impact, method-quality,
 and novelty fields remain internal ranking inputs and are not printed in the PDF.
 
@@ -103,7 +106,14 @@ Brevo email (recommended):
 
 Workflow file: `.github/workflows/weekly-digest.yml`
 
-- Scheduled: **Friday 08:15 UTC**
+Scheduled runs email automatically. Manual workflow runs default to preview-only;
+select the `send_email` input explicitly to send one. Before any requested email,
+the wrapper requires an LLM enrichment success rate of at least 50% and at least
+10 enriched core papers by default. Set `LLM_MIN_EMAIL_SUCCESS_RATE` and
+`LLM_MIN_EMAIL_CORE_ENRICHED` to change those thresholds. A failed gate retains and
+uploads the generated files and cache, skips email, and marks the run failed.
+
+- Scheduled: **Saturday 09:13 UTC**
 - Also supports manual `workflow_dispatch`
 - Uses concurrency control to prevent overlapping runs
 

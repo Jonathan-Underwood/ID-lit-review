@@ -15,6 +15,7 @@ from litdigest.digest import (  # noqa: E402
     Article,
     EFETCH_URL,
     ESEARCH_URL,
+    LLMEnrichmentError,
     apply_llm_enrichment,
     efetch,
     esearch,
@@ -301,6 +302,67 @@ class LLMReliabilityTests(unittest.TestCase):
             stats["models"],
             {"full": "gemini-3.5-flash", "lite": "gemini-3.5-flash-lite"},
         )
+
+    def test_lite_model_continues_after_full_model_quota_exhaustion(self) -> None:
+        articles = [make_article("1", 10), make_article("2", 9)]
+        lite_core = {"1": {"one_line_summary": "First paper fallback summary."}}
+        lite_second = {"2": {"one_line_summary": "Second paper summary."}}
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
+            mock.patch(
+                "litdigest.digest.gemini_enrich_batch",
+                side_effect=[
+                    LLMEnrichmentError("http_429: exceeded your current quota"),
+                    lite_core,
+                    lite_second,
+                ],
+            ) as enrich,
+        ):
+            enriched_articles, enriched_count, stats = apply_llm_enrichment(
+                articles=articles,
+                enabled=True,
+                llm_top_n=1,
+                llm_core_top_n=1,
+                llm_lite_top_n=1,
+                llm_cache_path=Path(tmp_dir) / "cache.json",
+                gemini_model="gemini-3.5-flash",
+                gemini_lite_model="gemini-3.5-flash-lite",
+                llm_batch_size=1,
+                llm_lite_batch_size=1,
+                llm_batch_delay_seconds=0,
+                llm_max_requests=4,
+            )
+
+        requested_models = [call.kwargs["gemini_model"] for call in enrich.call_args_list]
+        self.assertEqual(
+            requested_models,
+            ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-lite"],
+        )
+        self.assertEqual(enriched_count, 2)
+        self.assertEqual(stats["enriched_count"], 2)
+        self.assertEqual(stats["success_rate"], 1.0)
+        self.assertEqual(stats["quota_exhausted_models"], ["gemini-3.5-flash"])
+        self.assertEqual(stats["phase_stats"]["lite"]["target_count"], 2)
+        self.assertEqual(stats["salvage_stats"]["requests_attempted"], 0)
+        self.assertTrue(all(article.llm_enrichment for article in enriched_articles))
+
+    def test_workflow_manual_runs_default_to_no_email_and_has_quality_gate(self) -> None:
+        workflow = (PROJECT_ROOT / ".github" / "workflows" / "weekly-digest.yml").read_text(
+            encoding="utf-8"
+        )
+        wrapper = (PROJECT_ROOT / "scripts" / "run_weekly_digest.sh").read_text(
+            encoding="utf-8"
+        )
+
+        self.assertIn("send_email:", workflow)
+        self.assertIn("default: false", workflow)
+        self.assertIn("github.event_name == 'schedule'", workflow)
+        self.assertIn('LLM_MIN_EMAIL_SUCCESS_RATE: "0.5"', workflow)
+        self.assertIn('LLM_MIN_EMAIL_CORE_ENRICHED: "10"', workflow)
+        self.assertIn('LLM_MIN_EMAIL_SUCCESS_RATE="${LLM_MIN_EMAIL_SUCCESS_RATE:-0.5}"', wrapper)
+        self.assertIn('LLM_MIN_EMAIL_CORE_ENRICHED="${LLM_MIN_EMAIL_CORE_ENRICHED:-10}"', wrapper)
+        self.assertIn("Email quality gate failed", wrapper)
 
     def test_post_json_retries_raw_read_timeout(self) -> None:
         response = FakeResponse(json.dumps({"ok": True}).encode())

@@ -5,6 +5,12 @@ on:
     # Saturday 09:13 UTC (GMT)
     - cron: "13 9 * * 6"
   workflow_dispatch:
+    inputs:
+      send_email:
+        description: "Email the completed digest to the configured Brevo list"
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: weekly-digest-${{ github.ref }}
@@ -25,7 +31,9 @@ jobs:
       AUTO_PROCEED: "1"
       # The full run records the estimate; avoid fetching the same PubMed data twice.
       ESTIMATE_FIRST: "0"
-      SEND_EMAIL: "1"
+      # Scheduled runs email automatically. Manual runs are previews unless
+      # the operator explicitly selects the send_email checkbox.
+      SEND_EMAIL: ${{ (github.event_name == 'schedule' || inputs.send_email == true) && '1' || '0' }}
       NO_EMAIL: "0"
       EMAIL_PROVIDER: "brevo"
       EMAIL_TO_FILE: ""
@@ -40,6 +48,8 @@ jobs:
       LLM_BATCH_DELAY_SECONDS: "30"
       LLM_MAX_REQUESTS: "20"
       LLM_MIN_SUCCESS_RATE: "0.0"
+      LLM_MIN_EMAIL_SUCCESS_RATE: "0.5"
+      LLM_MIN_EMAIL_CORE_ENRICHED: "10"
       PODCAST_SOURCE: "1"
       PODCAST_PDF: "1"
 

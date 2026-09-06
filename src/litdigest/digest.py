@@ -1664,7 +1664,10 @@ def apply_llm_enrichment(
     cache = load_cache(llm_cache_path)
     effective_lite_model = gemini_lite_model or gemini_model
     enriched_pmids: set[str] = set()
-    quota_exhausted = False
+    # Gemini quotas are model-specific. Exhausting the full-appraisal model
+    # must not prevent the separate lite model from producing fallback
+    # summaries for the digest.
+    quota_exhausted_models: set[str] = set()
     max_requests_reached = False
     request_count = 0
     phase_stats: dict[str, dict[str, Any]] = {
@@ -1725,15 +1728,11 @@ def apply_llm_enrichment(
     )
     salvage_stats["reserved_requests"] = reserved_requests
 
-    phase_defs: list[tuple[str, list[Article], int]] = [
-        ("full", core_target, max(1, llm_batch_size)),
-        ("lite", lite_target, max(1, llm_lite_batch_size)),
-    ]
     target: list[Article] = core_target + lite_target
     enrichment_by_pmid: dict[str, dict[str, Any]] = {}
 
     def run_phase(profile: str, phase_target: list[Article], batch_size: int) -> None:
-        nonlocal request_count, quota_exhausted, max_requests_reached
+        nonlocal request_count, max_requests_reached
         if not phase_target:
             return
         phase_stats[profile]["target_count"] = len(phase_target)
@@ -1757,7 +1756,7 @@ def apply_llm_enrichment(
         queue: list[list[Article]] = [
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
         ]
-        while queue and not quota_exhausted:
+        while queue and phase_model not in quota_exhausted_models:
             cap = regular_phase_request_cap if reserve_last_request_for_salvage else llm_max_requests
             if cap > 0 and request_count >= cap:
                 max_requests_reached = True
@@ -1790,7 +1789,7 @@ def apply_llm_enrichment(
                     err = short_error(exc)
                     for art in batch:
                         art.score_reasons.append(f"llm_error:{err}")
-                    quota_exhausted = True
+                    quota_exhausted_models.add(phase_model)
                     phase_stats[profile]["quota_errors"] += 1
                     phase_stats[profile]["requests_failed"] += 1
                     continue
@@ -1828,10 +1827,22 @@ def apply_llm_enrichment(
                 f"{len(cache)} cached total."
             )
 
-    for profile, phase_target, phase_batch_size in phase_defs:
-        if quota_exhausted or max_requests_reached:
-            break
-        run_phase(profile=profile, phase_target=phase_target, batch_size=phase_batch_size)
+    run_phase(profile="full", phase_target=core_target, batch_size=max(1, llm_batch_size))
+
+    # Flash and Flash-Lite have independent model quotas. If the full model is
+    # exhausted, put unresolved core papers at the front of the lite queue so
+    # the most important section receives fallback summaries before extended
+    # papers consume any of the much larger lite-model allowance.
+    lite_phase_target = list(lite_target)
+    if gemini_model in quota_exhausted_models and effective_lite_model != gemini_model:
+        unresolved_core = [art for art in core_target if art.pmid not in enrichment_by_pmid]
+        lite_phase_target = unresolved_core + lite_phase_target
+    if not max_requests_reached:
+        run_phase(
+            profile="lite",
+            phase_target=lite_phase_target,
+            batch_size=max(1, llm_lite_batch_size),
+        )
 
     # If we hit the regular-phase cap, spend the reserved final request on a lite salvage pass
     # so unresolved target papers can still get concise one-line summaries.
@@ -1840,7 +1851,7 @@ def apply_llm_enrichment(
     ]
     if (
         salvage_candidates
-        and not quota_exhausted
+        and effective_lite_model not in quota_exhausted_models
         and reserve_last_request_for_salvage
         and llm_max_requests > 0
         and request_count < llm_max_requests
@@ -1891,14 +1902,14 @@ def apply_llm_enrichment(
                 if not any(r.startswith("llm_error:") for r in art.score_reasons):
                     art.score_reasons.append(f"llm_error:{err}")
             if is_quota_error(exc):
-                quota_exhausted = True
+                quota_exhausted_models.add(effective_lite_model)
                 salvage_stats["quota_errors"] += 1
 
     for art in target:
         enrichment = enrichment_by_pmid.get(art.pmid)
         if enrichment is None:
             if not any("llm_error:" in r for r in art.score_reasons):
-                if quota_exhausted:
+                if quota_exhausted_models:
                     art.score_reasons.append("llm_skipped:quota_exhausted")
                 elif max_requests_reached:
                     art.score_reasons.append("llm_skipped:max_requests_reached")
@@ -1939,7 +1950,7 @@ def apply_llm_enrichment(
             backfill_stats["cache_hits"] += 1
             continue
 
-        if quota_exhausted or max_requests_reached:
+        if gemini_model in quota_exhausted_models or max_requests_reached:
             break
         if llm_max_requests > 0 and request_count >= llm_max_requests:
             max_requests_reached = True
@@ -1989,7 +2000,7 @@ def apply_llm_enrichment(
             art.score_reasons.append(f"llm_error:{err}")
             backfill_stats["requests_failed"] += 1
             if is_quota_error(exc):
-                quota_exhausted = True
+                quota_exhausted_models.add(gemini_model)
                 backfill_stats["quota_errors"] += 1
                 break
 
@@ -2010,7 +2021,8 @@ def apply_llm_enrichment(
         "failed_count": max(0, targeted - len(enrichment_by_pmid)),
         "requests_used": request_count,
         "max_requests_reached": max_requests_reached,
-        "quota_exhausted": quota_exhausted,
+        "quota_exhausted": bool(quota_exhausted_models),
+        "quota_exhausted_models": sorted(quota_exhausted_models),
         "success_rate": round(success_rate, 3),
         "error_counts": error_counts,
         "phase_stats": phase_stats,
@@ -2817,6 +2829,9 @@ def write_run_summary(
                 "requests_used": llm_stats.get("requests_used", 0),
                 "max_requests_reached": llm_stats.get("max_requests_reached", False),
                 "quota_exhausted": llm_stats.get("quota_exhausted", False),
+                "quota_exhausted_models": llm_stats.get("quota_exhausted_models", []),
+                "core_enriched_count": llm_stats.get("core_enriched_count", 0),
+                "extended_enriched_count": llm_stats.get("extended_enriched_count", 0),
                 "error_counts": llm_stats.get("error_counts", {}),
                 "phase_stats": llm_stats.get("phase_stats", {}),
                 "backfill_stats": llm_stats.get("backfill_stats", {}),
