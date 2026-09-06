@@ -58,7 +58,8 @@ python3 run_digest.py \
   --llm-enrich \
   --llm-core-top-n 15 \
   --llm-lite-top-n 25 \
-  --gemini-model gemini-3.5-flash \
+  --gemini-model gemini-3.8-flash \
+  --gemini-fallback-models gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite \
   --gemini-lite-model gemini-3.5-flash-lite \
   --llm-batch-size 1 \
   --llm-lite-batch-size 13 \
@@ -86,14 +87,12 @@ Required for data + LLM:
 - `NCBI_API_KEY`
 - `GEMINI_API_KEY`
 
-The core appraisal uses Gemini 3.5 Flash and the lightweight extended-digest pass
-uses Gemini 3.5 Flash-Lite by default. Override them with `GEMINI_MODEL` and
-`GEMINI_LITE_MODEL` when using `scripts/run_weekly_digest.sh`.
-If the full model exhausts its quota, the separate lite model can continue and
-provide fallback summaries because quota state is tracked per model. Unresolved
-core papers retain the complete core appraisal prompt and structured output schema;
-only the model changes to Flash-Lite. Extended papers continue to use the shorter
-lite prompt.
+The core appraisal defaults to Gemini 3.8 Flash, then falls back after hard model
+quota exhaustion through Gemini 3.7, 3.6 and 3.5 Flash, followed by Gemini 3.5
+Flash-Lite. Every core fallback retains the complete appraisal prompt and structured
+output schema; only the model changes. Extended papers use the shorter Flash-Lite
+prompt directly. Override the chain with `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS`,
+and `GEMINI_LITE_MODEL` when using `scripts/run_weekly_digest.sh`.
 Core appraisal uses the complete PubMed abstract. Its clinical-impact, method-quality,
 and novelty fields remain internal ranking inputs and are not printed in the PDF.
 

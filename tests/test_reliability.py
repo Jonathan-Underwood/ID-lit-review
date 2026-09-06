@@ -135,7 +135,14 @@ class PubMedReliabilityTests(unittest.TestCase):
         )
 
     def test_default_pubmed_cap_is_750(self) -> None:
-        self.assertEqual(parse_args([]).max_results, 750)
+        args = parse_args([])
+        self.assertEqual(args.max_results, 750)
+        self.assertEqual(args.gemini_model, "gemini-3.8-flash")
+        self.assertEqual(
+            args.gemini_fallback_models,
+            "gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite",
+        )
+        self.assertEqual(args.llm_max_requests, 30)
 
 
 class LLMReliabilityTests(unittest.TestCase):
@@ -300,13 +307,18 @@ class LLMReliabilityTests(unittest.TestCase):
         self.assertEqual(enriched_count, 2)
         self.assertEqual(
             stats["models"],
-            {"full": "gemini-3.5-flash", "lite": "gemini-3.5-flash-lite"},
+            {
+                "full": "gemini-3.5-flash",
+                "full_fallbacks": ["gemini-3.5-flash-lite"],
+                "lite": "gemini-3.5-flash-lite",
+            },
         )
 
     def test_lite_model_continues_after_full_model_quota_exhaustion(self) -> None:
         articles = [make_article("1", 10), make_article("2", 9)]
         lite_core = {"1": {"one_line_summary": "First paper fallback summary."}}
         lite_second = {"2": {"one_line_summary": "Second paper summary."}}
+        full_backfill = {"2": {"at_a_glance_summary": "Second paper full appraisal."}}
         with (
             tempfile.TemporaryDirectory() as tmp_dir,
             mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
@@ -316,6 +328,7 @@ class LLMReliabilityTests(unittest.TestCase):
                     LLMEnrichmentError("http_429: exceeded your current quota"),
                     lite_core,
                     lite_second,
+                    full_backfill,
                 ],
             ) as enrich,
         ):
@@ -338,9 +351,14 @@ class LLMReliabilityTests(unittest.TestCase):
         requested_profiles = [call.kwargs["profile"] for call in enrich.call_args_list]
         self.assertEqual(
             requested_models,
-            ["gemini-3.5-flash", "gemini-3.5-flash-lite", "gemini-3.5-flash-lite"],
+            [
+                "gemini-3.5-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.5-flash-lite",
+                "gemini-3.5-flash-lite",
+            ],
         )
-        self.assertEqual(requested_profiles, ["full", "full", "lite"])
+        self.assertEqual(requested_profiles, ["full", "full", "lite", "full"])
         self.assertEqual(enriched_count, 2)
         self.assertEqual(stats["enriched_count"], 2)
         self.assertEqual(stats["success_rate"], 1.0)
@@ -349,7 +367,66 @@ class LLMReliabilityTests(unittest.TestCase):
         self.assertEqual(stats["phase_stats"]["full_fallback"]["items_enriched"], 1)
         self.assertEqual(stats["phase_stats"]["lite"]["target_count"], 1)
         self.assertEqual(stats["salvage_stats"]["requests_attempted"], 0)
+        self.assertEqual(stats["backfill_stats"]["items_enriched"], 1)
         self.assertTrue(all(article.llm_enrichment for article in enriched_articles))
+
+    def test_full_prompt_walks_down_flash_model_quota_chain(self) -> None:
+        article = make_article("1", 10)
+        full_result = {"1": {"at_a_glance_summary": "Structured full appraisal."}}
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
+            mock.patch(
+                "litdigest.digest.gemini_enrich_batch",
+                side_effect=[
+                    LLMEnrichmentError("http_429: exceeded your current quota"),
+                    LLMEnrichmentError("http_429: exceeded your current quota"),
+                    full_result,
+                ],
+            ) as enrich,
+        ):
+            enriched_articles, enriched_count, stats = apply_llm_enrichment(
+                articles=[article],
+                enabled=True,
+                llm_top_n=1,
+                llm_core_top_n=1,
+                llm_lite_top_n=0,
+                llm_cache_path=Path(tmp_dir) / "cache.json",
+                gemini_model="gemini-3.8-flash",
+                gemini_fallback_models=[
+                    "gemini-3.7-flash",
+                    "gemini-3.6-flash",
+                    "gemini-3.5-flash-lite",
+                ],
+                gemini_lite_model="gemini-3.5-flash-lite",
+                llm_batch_size=1,
+                llm_lite_batch_size=1,
+                llm_batch_delay_seconds=0,
+                llm_max_requests=5,
+            )
+
+        self.assertEqual(
+            [call.kwargs["gemini_model"] for call in enrich.call_args_list],
+            ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash"],
+        )
+        self.assertEqual(
+            [call.kwargs["profile"] for call in enrich.call_args_list],
+            ["full", "full", "full"],
+        )
+        self.assertEqual(enriched_count, 1)
+        self.assertEqual(stats["full_models_attempted"], [
+            "gemini-3.8-flash",
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+        ])
+        self.assertEqual(
+            stats["quota_exhausted_models"],
+            ["gemini-3.7-flash", "gemini-3.8-flash"],
+        )
+        self.assertEqual(
+            enriched_articles[0].llm_enrichment["at_a_glance_summary"],
+            "Structured full appraisal.",
+        )
 
     def test_workflow_manual_runs_default_to_no_email_and_has_quality_gate(self) -> None:
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "weekly-digest.yml").read_text(

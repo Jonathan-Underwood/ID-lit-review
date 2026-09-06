@@ -1644,6 +1644,7 @@ def apply_llm_enrichment(
     llm_batch_delay_seconds: float,
     llm_max_requests: int,
     gemini_lite_model: str | None = None,
+    gemini_fallback_models: list[str] | None = None,
 ) -> tuple[list[Article], int, dict[str, Any]]:
     if not enabled:
         return articles, 0, {
@@ -1663,11 +1664,17 @@ def apply_llm_enrichment(
 
     cache = load_cache(llm_cache_path)
     effective_lite_model = gemini_lite_model or gemini_model
+    full_model_chain: list[str] = []
+    for model in [gemini_model, *(gemini_fallback_models or [effective_lite_model])]:
+        cleaned_model = str(model).strip()
+        if cleaned_model and cleaned_model not in full_model_chain:
+            full_model_chain.append(cleaned_model)
     enriched_pmids: set[str] = set()
     # Gemini quotas are model-specific. Exhausting the full-appraisal model
     # must not prevent the separate lite model from producing fallback
     # summaries for the digest.
     quota_exhausted_models: set[str] = set()
+    full_models_attempted: list[str] = []
     max_requests_reached = False
     request_count = 0
     phase_stats: dict[str, dict[str, Any]] = {
@@ -1750,12 +1757,16 @@ def apply_llm_enrichment(
         *,
         phase_model_override: str | None = None,
         stats_key: str | None = None,
+        accumulate_stats: bool = False,
     ) -> None:
         nonlocal request_count, max_requests_reached
         if not phase_target:
             return
         phase_stats_key = stats_key or profile
-        phase_stats[phase_stats_key]["target_count"] = len(phase_target)
+        if accumulate_stats:
+            phase_stats[phase_stats_key]["target_count"] += len(phase_target)
+        else:
+            phase_stats[phase_stats_key]["target_count"] = len(phase_target)
         phase_stats[phase_stats_key]["batch_size"] = batch_size
         phase_model = phase_model_override or (
             gemini_model if profile == "full" else effective_lite_model
@@ -1773,7 +1784,10 @@ def apply_llm_enrichment(
                 phase_stats[phase_stats_key]["cache_hits"] += 1
                 continue
             unresolved.append(art)
-        phase_stats[phase_stats_key]["unresolved_count"] = len(unresolved)
+        if accumulate_stats:
+            phase_stats[phase_stats_key]["unresolved_count"] += len(unresolved)
+        else:
+            phase_stats[phase_stats_key]["unresolved_count"] = len(unresolved)
 
         queue: list[list[Article]] = [
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
@@ -1849,22 +1863,29 @@ def apply_llm_enrichment(
                 f"{len(cache)} cached total."
             )
 
+    full_models_attempted.append(gemini_model)
     run_phase(profile="full", phase_target=core_target, batch_size=max(1, llm_batch_size))
 
-    # Flash and Flash-Lite have independent model quotas. If the full model is
-    # exhausted, rerun unresolved core papers on Flash-Lite with the same full
-    # appraisal prompt and schema. Only the model changes; core output quality
-    # and structure remain the same.
-    if gemini_model in quota_exhausted_models and effective_lite_model != gemini_model:
+    # Each Flash model has an independent quota. Walk down the configured
+    # fallback chain only after the preceding model reports hard quota
+    # exhaustion. Every fallback retains the full appraisal prompt/schema.
+    previous_full_model = gemini_model
+    for fallback_model in full_model_chain[1:]:
+        if previous_full_model not in quota_exhausted_models or max_requests_reached:
+            break
         unresolved_core = [art for art in core_target if art.pmid not in enrichment_by_pmid]
-        if not max_requests_reached:
-            run_phase(
-                profile="full",
-                phase_target=unresolved_core,
-                batch_size=max(1, llm_batch_size),
-                phase_model_override=effective_lite_model,
-                stats_key="full_fallback",
-            )
+        if not unresolved_core:
+            break
+        full_models_attempted.append(fallback_model)
+        run_phase(
+            profile="full",
+            phase_target=unresolved_core,
+            batch_size=max(1, llm_batch_size),
+            phase_model_override=fallback_model,
+            stats_key="full_fallback",
+            accumulate_stats=True,
+        )
+        previous_full_model = fallback_model
     if not max_requests_reached:
         run_phase(
             profile="lite",
@@ -1959,11 +1980,17 @@ def apply_llm_enrichment(
         if has_full_enrichment_payload(art.llm_enrichment):
             continue
         backfill_stats["missing_full_core_count"] += 1
+        backfill_model = next(
+            (model for model in full_model_chain if model not in quota_exhausted_models),
+            None,
+        )
+        if backfill_model is None:
+            break
         cached = cache.get(art.pmid)
         if cached_enrichment_is_usable(
             cached,
             art=art,
-            expected_model=gemini_model,
+            expected_model=backfill_model,
             expected_profile="full",
         ):
             enrichment = cached["enrichment"]
@@ -1978,7 +2005,7 @@ def apply_llm_enrichment(
             backfill_stats["cache_hits"] += 1
             continue
 
-        if gemini_model in quota_exhausted_models or max_requests_reached:
+        if max_requests_reached:
             break
         if llm_max_requests > 0 and request_count >= llm_max_requests:
             max_requests_reached = True
@@ -1990,7 +2017,7 @@ def apply_llm_enrichment(
         try:
             full_enrichment = gemini_enrich_batch(
                 batch=[art],
-                gemini_model=gemini_model,
+                gemini_model=backfill_model,
                 gemini_api_key=gemini_api_key,
                 profile="full",
             )
@@ -2005,7 +2032,7 @@ def apply_llm_enrichment(
             if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
                 art.score_reasons.append(f"llm_priority=+{llm_pts}")
             cache[art.pmid] = {
-                "model": gemini_model,
+                "model": backfill_model,
                 "profile": "full",
                 "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
                 "enrichment_version": LLM_FULL_ENRICHMENT_VERSION,
@@ -2028,7 +2055,7 @@ def apply_llm_enrichment(
             art.score_reasons.append(f"llm_error:{err}")
             backfill_stats["requests_failed"] += 1
             if is_quota_error(exc):
-                quota_exhausted_models.add(gemini_model)
+                quota_exhausted_models.add(backfill_model)
                 backfill_stats["quota_errors"] += 1
                 break
 
@@ -2043,7 +2070,12 @@ def apply_llm_enrichment(
                 error_counts[reason] = error_counts.get(reason, 0) + 1
 
     stats = {
-        "models": {"full": gemini_model, "lite": effective_lite_model},
+        "models": {
+            "full": gemini_model,
+            "full_fallbacks": full_model_chain[1:],
+            "lite": effective_lite_model,
+        },
+        "full_models_attempted": full_models_attempted,
         "target_count": targeted,
         "enriched_count": len(enrichment_by_pmid),
         "failed_count": max(0, targeted - len(enrichment_by_pmid)),
@@ -2858,6 +2890,7 @@ def write_run_summary(
                 "max_requests_reached": llm_stats.get("max_requests_reached", False),
                 "quota_exhausted": llm_stats.get("quota_exhausted", False),
                 "quota_exhausted_models": llm_stats.get("quota_exhausted_models", []),
+                "full_models_attempted": llm_stats.get("full_models_attempted", []),
                 "core_enriched_count": llm_stats.get("core_enriched_count", 0),
                 "extended_enriched_count": llm_stats.get("extended_enriched_count", 0),
                 "error_counts": llm_stats.get("error_counts", {}),
@@ -2888,6 +2921,7 @@ def run(
     llm_cache_path: Path,
     gemini_model: str,
     gemini_lite_model: str,
+    gemini_fallback_models: list[str],
     llm_batch_size: int,
     llm_lite_batch_size: int,
     llm_batch_delay_seconds: float,
@@ -2973,6 +3007,7 @@ def run(
         llm_cache_path=llm_cache_path,
         gemini_model=gemini_model,
         gemini_lite_model=gemini_lite_model,
+        gemini_fallback_models=gemini_fallback_models,
         llm_batch_size=llm_batch_size,
         llm_lite_batch_size=llm_lite_batch_size,
         llm_batch_delay_seconds=llm_batch_delay_seconds,
@@ -3054,7 +3089,11 @@ def run(
             "retrieved_count": len(pmids),
             "scored_count": len(articles),
             "models": (
-                {"full": gemini_model, "lite": gemini_lite_model}
+                {
+                    "full": gemini_model,
+                    "full_fallbacks": gemini_fallback_models,
+                    "lite": gemini_lite_model,
+                }
                 if llm_enrich
                 else {"full": "not used", "lite": "not used"}
             ),
@@ -3130,8 +3169,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--gemini-model",
-        default="gemini-3.5-flash",
-        help="Gemini model for full/core enrichment (default: gemini-3.5-flash).",
+        default="gemini-3.8-flash",
+        help="Primary Gemini model for full/core enrichment (default: gemini-3.8-flash).",
+    )
+    parser.add_argument(
+        "--gemini-fallback-models",
+        default=(
+            "gemini-3.7-flash,gemini-3.6-flash,"
+            "gemini-3.5-flash,gemini-3.5-flash-lite"
+        ),
+        help=(
+            "Comma-separated full-appraisal fallback chain used after hard model quota "
+            "exhaustion (default: Gemini 3.7, 3.6, 3.5 Flash, then 3.5 Flash-Lite)."
+        ),
     )
     parser.add_argument(
         "--gemini-lite-model",
@@ -3170,8 +3220,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--llm-max-requests",
         type=int,
-        default=18,
-        help="Hard cap on Gemini requests per run (default: 18; set 0 for no cap).",
+        default=30,
+        help="Hard cap on Gemini requests per run (default: 30; set 0 for no cap).",
     )
     parser.add_argument(
         "--estimate-llm-requests",
@@ -3209,6 +3259,11 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = Path(args.output_dir).resolve()
     config_dir = Path(args.config_dir).resolve()
     llm_cache_path = Path(args.llm_cache).resolve()
+    gemini_fallback_models = [
+        model.strip()
+        for model in args.gemini_fallback_models.split(",")
+        if model.strip()
+    ]
     if args.safe_mode:
         args.llm_batch_size = 2
         args.llm_lite_batch_size = 2
@@ -3232,6 +3287,7 @@ def main(argv: list[str] | None = None) -> int:
             llm_cache_path=llm_cache_path,
             gemini_model=args.gemini_model,
             gemini_lite_model=args.gemini_lite_model,
+            gemini_fallback_models=gemini_fallback_models,
             llm_batch_size=args.llm_batch_size,
             llm_lite_batch_size=args.llm_lite_batch_size,
             llm_batch_delay_seconds=args.llm_batch_delay_seconds,
@@ -3255,13 +3311,14 @@ def main(argv: list[str] | None = None) -> int:
         LLM requests used: {llm_stats["requests_used"]}
         LLM max requests reached: {llm_stats["max_requests_reached"]}
         LLM quota exhausted: {llm_stats["quota_exhausted"]}
+        LLM full models attempted: {llm_stats.get("full_models_attempted", [])}
         LLM HTTP attempts (raw): {llm_stats.get("http_telemetry", {}).get("total_attempts", 0)}
         LLM HTTP retries performed: {llm_stats.get("http_telemetry", {}).get("retries_performed", 0)}
         LLM HTTP recovered after retry: {llm_stats.get("http_telemetry", {}).get("recovered_after_retry", 0)}
         LLM HTTP final failures: {llm_stats.get("http_telemetry", {}).get("final_failures", 0)}
         LLM HTTP status counts: {llm_stats.get("http_telemetry", {}).get("http_errors_by_code", {})}
         LLM full phase: target {llm_stats.get("phase_stats", {}).get("full", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("full", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("full", {}).get("requests_attempted", 0)}
-        LLM full fallback on lite model: target {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("cache_hits", 0)}, requests {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("items_enriched", 0)}
+        LLM full fallback chain: target attempts {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("cache_hits", 0)}, requests {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("phase_stats", {}).get("full_fallback", {}).get("items_enriched", 0)}
         LLM lite phase: target {llm_stats.get("phase_stats", {}).get("lite", {}).get("target_count", 0)}, cache hits {llm_stats.get("phase_stats", {}).get("lite", {}).get("cache_hits", 0)}, unresolved {llm_stats.get("phase_stats", {}).get("lite", {}).get("unresolved_count", 0)}, requests {llm_stats.get("phase_stats", {}).get("lite", {}).get("requests_attempted", 0)}
         LLM salvage pass: reserved {llm_stats.get("salvage_stats", {}).get("reserved_requests", 0)}, requests {llm_stats.get("salvage_stats", {}).get("requests_attempted", 0)}, items enriched {llm_stats.get("salvage_stats", {}).get("items_enriched", 0)}
         LLM core backfill: missing full core {llm_stats.get("backfill_stats", {}).get("missing_full_core_count", 0)}, cache hits {llm_stats.get("backfill_stats", {}).get("cache_hits", 0)}, requests {llm_stats.get("backfill_stats", {}).get("requests_attempted", 0)}

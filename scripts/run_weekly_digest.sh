@@ -25,7 +25,8 @@ LLM_TOP_N="${LLM_TOP_N:-24}"
 LLM_CORE_TOP_N="${LLM_CORE_TOP_N:-15}"
 LLM_LITE_TOP_N="${LLM_LITE_TOP_N:-25}"
 LLM_CACHE="${LLM_CACHE:-outputs/llm_cache.json}"
-GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.5-flash}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.8-flash}"
+GEMINI_FALLBACK_MODELS="${GEMINI_FALLBACK_MODELS:-gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite}"
 GEMINI_LITE_MODEL="${GEMINI_LITE_MODEL:-gemini-3.5-flash-lite}"
 LLM_BATCH_SIZE="${LLM_BATCH_SIZE:-1}"
 LLM_LITE_BATCH_SIZE="${LLM_LITE_BATCH_SIZE:-13}"
@@ -33,7 +34,7 @@ LLM_BATCH_DELAY_SECONDS="${LLM_BATCH_DELAY_SECONDS:-30}"
 LLM_MIN_SUCCESS_RATE="${LLM_MIN_SUCCESS_RATE:-0.0}"
 LLM_MIN_EMAIL_SUCCESS_RATE="${LLM_MIN_EMAIL_SUCCESS_RATE:-0.5}"
 LLM_MIN_EMAIL_CORE_ENRICHED="${LLM_MIN_EMAIL_CORE_ENRICHED:-10}"
-LLM_MAX_REQUESTS="${LLM_MAX_REQUESTS:-20}"
+LLM_MAX_REQUESTS="${LLM_MAX_REQUESTS:-30}"
 SAFE_MODE="${SAFE_MODE:-0}"
 PODCAST_SOURCE="${PODCAST_SOURCE:-1}"
 PODCAST_MAX_ITEMS="${PODCAST_MAX_ITEMS:-15}"
@@ -65,6 +66,7 @@ CMD=(
   --llm-lite-top-n "$LLM_LITE_TOP_N" \
   --llm-cache "$LLM_CACHE" \
   --gemini-model "$GEMINI_MODEL" \
+  --gemini-fallback-models "$GEMINI_FALLBACK_MODELS" \
   --gemini-lite-model "$GEMINI_LITE_MODEL" \
   --llm-batch-size "$LLM_BATCH_SIZE" \
   --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
@@ -93,6 +95,7 @@ if [[ "$ESTIMATE_FIRST" == "1" ]]; then
     --llm-lite-top-n "$LLM_LITE_TOP_N" \
     --llm-cache "$LLM_CACHE" \
     --gemini-model "$GEMINI_MODEL" \
+    --gemini-fallback-models "$GEMINI_FALLBACK_MODELS" \
     --gemini-lite-model "$GEMINI_LITE_MODEL" \
     --llm-batch-size "$LLM_BATCH_SIZE" \
     --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
