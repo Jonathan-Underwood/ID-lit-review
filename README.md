@@ -4,6 +4,10 @@
 
 Automated weekly literature triage for infectious diseases + general medicine.
 
+The PubMed scan uses record creation date (`CRDT`) across the previous seven
+complete UTC calendar days. This captures citations when they first enter PubMed
+without resurfacing them when an online-first record later receives a print date.
+
 ## Licence
 
 This project is released under the BSD 3-Clause Licence. See the LICENSE file for details.
@@ -42,7 +46,7 @@ The example is provided to demonstrate the output format only. It is not a clini
 
 ```bash
 cd /Users/jonathanunderwood/id-literature-digest
-python3 run_digest.py --days 7 --max-results 500
+python3 run_digest.py --days 7 --max-results 750
 ```
 
 With LLM enrichment:
@@ -50,10 +54,12 @@ With LLM enrichment:
 ```bash
 python3 run_digest.py \
   --days 7 \
-  --max-results 500 \
+  --max-results 750 \
   --llm-enrich \
   --llm-core-top-n 15 \
   --llm-lite-top-n 25 \
+  --gemini-model gemini-3.5-flash \
+  --gemini-lite-model gemini-3.5-flash-lite \
   --llm-batch-size 1 \
   --llm-lite-batch-size 13 \
   --llm-max-requests 20
@@ -79,6 +85,12 @@ Required for data + LLM:
 
 - `NCBI_API_KEY`
 - `GEMINI_API_KEY`
+
+The core appraisal uses Gemini 3.5 Flash and the lightweight extended-digest pass
+uses Gemini 3.5 Flash-Lite by default. Override them with `GEMINI_MODEL` and
+`GEMINI_LITE_MODEL` when using `scripts/run_weekly_digest.sh`.
+Core appraisal uses the complete PubMed abstract. Its clinical-impact, method-quality,
+and novelty fields remain internal ranking inputs and are not printed in the PDF.
 
 Brevo email (recommended):
 
@@ -106,3 +118,18 @@ Workflow file: `.github/workflows/weekly-digest.yml`
 ## PDF Notes
 
 `render_pdf.sh` applies styling and footer metadata automatically.
+The PDF starts the Core Digest and Extended Digest on new pages by default.
+Each digest ends with a one-page, compact two-column Methods and QA Appendix containing the
+run-specific search strategy, selection flow, scoring description, QA status, and models.
+Set `PDF_PAGE_BREAK_BEFORE_CORE=0` or `PDF_PAGE_BREAK_BEFORE_EXTENDED=0` to disable either break.
+Set `PDF_OVERVIEW_SECTION_SPACING=0` to disable the extra spacing around the opening overview sections.
+Set `PDF_COMPACT_METHODS_APPENDIX=0` to render the appendix without compact two-column styling.
+Article scores are omitted from the PDF by default but retained in Markdown and JSON;
+set `PDF_INCLUDE_ARTICLE_SCORES=1` to show them in the PDF.
+The PDF adds a small optical gap between each article date and the following
+separator; set `PDF_SPACE_AFTER_ARTICLE_DATE=0` to disable it.
+Core papers with full LLM appraisal use two concise `Why it matters` bullets, followed
+by a one-line study-design summary and a lightly shaded box containing the primary
+outcome, effect estimate, and confidence interval. Missing statistics are explicitly
+labelled as not reported in the abstract rather than inferred. When the effect and its
+confidence interval share units, the unit appears once at the end of the expression.

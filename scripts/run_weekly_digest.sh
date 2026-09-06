@@ -20,11 +20,13 @@ if [[ -f ".env.local" ]]; then
 fi
 
 DAYS="${DAYS:-7}"
-MAX_RESULTS="${MAX_RESULTS:-500}"
+MAX_RESULTS="${MAX_RESULTS:-750}"
 LLM_TOP_N="${LLM_TOP_N:-24}"
 LLM_CORE_TOP_N="${LLM_CORE_TOP_N:-15}"
 LLM_LITE_TOP_N="${LLM_LITE_TOP_N:-25}"
 LLM_CACHE="${LLM_CACHE:-outputs/llm_cache.json}"
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.5-flash}"
+GEMINI_LITE_MODEL="${GEMINI_LITE_MODEL:-gemini-3.5-flash-lite}"
 LLM_BATCH_SIZE="${LLM_BATCH_SIZE:-1}"
 LLM_LITE_BATCH_SIZE="${LLM_LITE_BATCH_SIZE:-13}"
 LLM_BATCH_DELAY_SECONDS="${LLM_BATCH_DELAY_SECONDS:-30}"
@@ -60,6 +62,8 @@ CMD=(
   --llm-core-top-n "$LLM_CORE_TOP_N" \
   --llm-lite-top-n "$LLM_LITE_TOP_N" \
   --llm-cache "$LLM_CACHE" \
+  --gemini-model "$GEMINI_MODEL" \
+  --gemini-lite-model "$GEMINI_LITE_MODEL" \
   --llm-batch-size "$LLM_BATCH_SIZE" \
   --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
   --llm-batch-delay-seconds "$LLM_BATCH_DELAY_SECONDS" \
@@ -86,6 +90,8 @@ if [[ "$ESTIMATE_FIRST" == "1" ]]; then
     --llm-core-top-n "$LLM_CORE_TOP_N" \
     --llm-lite-top-n "$LLM_LITE_TOP_N" \
     --llm-cache "$LLM_CACHE" \
+    --gemini-model "$GEMINI_MODEL" \
+    --gemini-lite-model "$GEMINI_LITE_MODEL" \
     --llm-batch-size "$LLM_BATCH_SIZE" \
     --llm-lite-batch-size "$LLM_LITE_BATCH_SIZE" \
     --estimate-llm-requests

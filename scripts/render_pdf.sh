@@ -19,7 +19,8 @@ if [[ -z "$RUN_DATE" ]]; then
   RUN_DATE="$(date +%Y-%m-%d)"
 fi
 RUN_DATE_DDMMYYYY="$(echo "$RUN_DATE" | awk -F- '{print $3 "-" $2 "-" $1}')"
-PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.3 July 2026"
+PDF_FOOTER_TEXT="Automated ID literature review ${RUN_DATE_DDMMYYYY} Jonathan Underwood v1.4 September 2026"
+PDF_DISCLAIMER_TEXT="AI-generated summaries may contain errors; consult the original paper."
 
 if [[ ! -f "$MD_FILE" ]]; then
   echo "Markdown file not found: $MD_FILE" >&2
@@ -42,7 +43,13 @@ if [[ "${PDF_INCLUDE_TYPE_AND_GROUP:-0}" != "1" ]]; then
     cp "$MD_FILE" "$TMP_MD"
   fi
   TMP_MD_FILTERED="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
-  sed '/^[[:space:]]*Type:/d;/^[[:space:]]*Journal group:/d' "$TMP_MD" > "$TMP_MD_FILTERED"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe '
+    if (/^[[:space:]]*(?:Type|Journal group):/i) {
+      $_ = "";
+      next;
+    }
+    s/\s*\|\s*Group:\s*[^|]+(?=\s*\||$)//gi;
+  ' "$TMP_MD" > "$TMP_MD_FILTERED"
   rm -f "$TMP_MD"
   TMP_MD="$TMP_MD_FILTERED"
   PDF_SOURCE="$TMP_MD"
@@ -88,9 +95,70 @@ shorten_links_for_pdf() {
   PDF_SOURCE="$TMP_MD"
 }
 
+hide_pdf_article_scores() {
+  # Scores remain available in Markdown/JSON for auditability, but are omitted
+  # from the reader-facing PDF metadata line.
+  if [[ "${PDF_INCLUDE_ARTICLE_SCORES:-0}" == "1" ]]; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_scores
+  tmp_scores="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe '
+    s/\s*\|\s*Score:\s*[^|]+(?=\s*\||$)//g;
+  ' "$TMP_MD" > "$tmp_scores"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_scores"
+  PDF_SOURCE="$TMP_MD"
+}
+
+space_pdf_date_separators() {
+  # Pandoc/TeX can make the ordinary space before a pipe look optically tight
+  # after a numeric date. Add a small explicit gap in PDF article metadata.
+  if [[ "${PDF_SPACE_AFTER_ARTICLE_DATE:-1}" != "1" ]]; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_date_spacing
+  tmp_date_spacing="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe '
+    if (/\[PubMed\]/) {
+      s/(\b\d{2}-\d{2}-\d{4})\s*\|/$1 \\hspace{0.22em}|/;
+    }
+  ' "$TMP_MD" > "$tmp_date_spacing"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_date_spacing"
+  PDF_SOURCE="$TMP_MD"
+}
+
+add_pdf_overview_spacing() {
+  # Give the opening overview more breathing room without changing the source
+  # Markdown or the email rendering.
+  if [[ "${PDF_OVERVIEW_SECTION_SPACING:-1}" != "1" ]]; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_spacing
+  tmp_spacing="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/^## Outbreak Watch/\\vspace{1.4em}\n\n## Outbreak Watch/; s/^## At A Glance/\\vspace{2.4em}\n\n## At A Glance/' "$TMP_MD" > "$tmp_spacing"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_spacing"
+  PDF_SOURCE="$TMP_MD"
+}
+
 add_pdf_page_breaks() {
-  # Source markdown stays continuous; the PDF starts the extended digest on a new page.
-  if [[ "${PDF_PAGE_BREAK_BEFORE_EXTENDED:-1}" != "1" ]]; then
+  # Source markdown stays continuous. In the PDF, keep the opening overview
+  # separate from the core reading list and the extended list.
+  if [[ "${PDF_PAGE_BREAK_BEFORE_CORE:-1}" != "1" && "${PDF_PAGE_BREAK_BEFORE_EXTENDED:-1}" != "1" ]]; then
     return
   fi
   if [[ -z "$TMP_MD" ]]; then
@@ -99,14 +167,58 @@ add_pdf_page_breaks() {
   fi
   local tmp_breaks
   tmp_breaks="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
-  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/^## Extended Digest/\\newpage\n\n## Extended Digest/' "$TMP_MD" > "$tmp_breaks"
+  cp "$TMP_MD" "$tmp_breaks"
+  if [[ "${PDF_PAGE_BREAK_BEFORE_CORE:-1}" == "1" ]]; then
+    local tmp_core_break
+    tmp_core_break="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/^## Core Digest/\\newpage\n\n## Core Digest/' "$tmp_breaks" > "$tmp_core_break"
+    mv "$tmp_core_break" "$tmp_breaks"
+  fi
+  if [[ "${PDF_PAGE_BREAK_BEFORE_EXTENDED:-1}" == "1" ]]; then
+    local tmp_extended_break
+    tmp_extended_break="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe 's/^## Extended Digest/\\newpage\n\n## Extended Digest/' "$tmp_breaks" > "$tmp_extended_break"
+    mv "$tmp_extended_break" "$tmp_breaks"
+  fi
   rm -f "$TMP_MD"
   TMP_MD="$tmp_breaks"
   PDF_SOURCE="$TMP_MD"
 }
 
+style_pdf_methods_appendix() {
+  # Keep the source Markdown readable. In the PDF, place the audit appendix on
+  # its own page in compact two-column type so the exact search can
+  # be included without expanding the digest by several pages.
+  if [[ "${PDF_COMPACT_METHODS_APPENDIX:-1}" != "1" ]]; then
+    return
+  fi
+  if ! grep -q '^## Methods and QA Appendix' "$PDF_SOURCE"; then
+    return
+  fi
+  if [[ -z "$TMP_MD" ]]; then
+    TMP_MD="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+    cp "$MD_FILE" "$TMP_MD"
+  fi
+  local tmp_appendix
+  tmp_appendix="$(mktemp "${TMPDIR:-/tmp}/digest.XXXXXX")"
+  perl -Mutf8 '-Mopen=:std,:encoding(UTF-8)' -pe '
+    if (/^## Methods and QA Appendix/) {
+      $_ = "\\clearpage\n\\twocolumn[{\\large\\bfseries Methods and QA Appendix\\par\\vspace{0.35em}}]\n\\fontsize{7.8pt}{9.1pt}\\selectfont\n\\setlength{\\parskip}{0.22em}\n\\setlength{\\columnsep}{0.8cm}\n";
+    } elsif (/^\*\*Limits and cut-off\.\*\*/) {
+      $_ = "\\newpage\n\n" . $_;
+    }
+  ' "$TMP_MD" > "$tmp_appendix"
+  rm -f "$TMP_MD"
+  TMP_MD="$tmp_appendix"
+  PDF_SOURCE="$TMP_MD"
+}
+
 shorten_links_for_pdf
+hide_pdf_article_scores
+space_pdf_date_separators
+add_pdf_overview_spacing
 add_pdf_page_breaks
+style_pdf_methods_appendix
 
 cleanup() {
   [[ -n "$TMP_MD" ]] && rm -f "$TMP_MD"
@@ -172,7 +284,7 @@ run_pandoc_pdf() {
   \sloppy
   \pagestyle{fancy}
   \fancyhf{}
-  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
+  \fancyfoot[L]{\scriptsize\begin{tabular}[b]{@{}l@{}}${PDF_FOOTER_TEXT}\tabularnewline\textit{${PDF_DISCLAIMER_TEXT}}\end{tabular}}
   \fancyfoot[R]{\scriptsize \thepage\ of \pageref{LastPage}}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
@@ -189,7 +301,7 @@ EOF
   \sloppy
   \pagestyle{fancy}
   \fancyhf{}
-  \fancyfoot[L]{\scriptsize ${PDF_FOOTER_TEXT}}
+  \fancyfoot[L]{\scriptsize\begin{tabular}[b]{@{}l@{}}${PDF_FOOTER_TEXT}\tabularnewline\textit{${PDF_DISCLAIMER_TEXT}}\end{tabular}}
   \fancyfoot[R]{\scriptsize \thepage}
   \renewcommand{\headrulewidth}{0pt}
   \renewcommand{\footrulewidth}{0pt}
@@ -204,6 +316,18 @@ EOF
 \usepackage{fontspec}
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
+\newsavebox{\digestresultbox}
+\renewenvironment{quote}{%
+  \par\smallskip\noindent
+  \begin{lrbox}{\digestresultbox}%
+  \begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}%
+  \small\setlength{\parskip}{0.16em}%
+}{%
+  \end{minipage}%
+  \end{lrbox}%
+  \fcolorbox{black!35}{black!4}{\usebox{\digestresultbox}}%
+  \par\smallskip
+}
 \AtBeginDocument{%
   \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
   \let\HrefOrig\href
@@ -216,6 +340,18 @@ EOF
       cat > "$TMP_TEX_HEADER" <<EOF
 \usepackage{xcolor}
 \usepackage[normalem]{ulem}
+\newsavebox{\digestresultbox}
+\renewenvironment{quote}{%
+  \par\smallskip\noindent
+  \begin{lrbox}{\digestresultbox}%
+  \begin{minipage}{\dimexpr\linewidth-2\fboxsep-2\fboxrule\relax}%
+  \small\setlength{\parskip}{0.16em}%
+}{%
+  \end{minipage}%
+  \end{lrbox}%
+  \fcolorbox{black!35}{black!4}{\usebox{\digestresultbox}}%
+  \par\smallskip
+}
 \AtBeginDocument{%
   \hypersetup{colorlinks=true,urlcolor=blue,linkcolor=blue,citecolor=blue}
   \let\HrefOrig\href

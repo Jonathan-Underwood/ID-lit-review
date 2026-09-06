@@ -23,13 +23,16 @@ jobs:
       BREVO_SENDER_NAME: ${{ secrets.BREVO_SENDER_NAME }}
       BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
       AUTO_PROCEED: "1"
-      ESTIMATE_FIRST: "1"
+      # The full run records the estimate; avoid fetching the same PubMed data twice.
+      ESTIMATE_FIRST: "0"
       SEND_EMAIL: "1"
       NO_EMAIL: "0"
       EMAIL_PROVIDER: "brevo"
       EMAIL_TO_FILE: ""
       EMAIL_BREVO_LIST_ID: ${{ secrets.BREVO_LIST_ID }}
-      MAX_RESULTS: "500"
+      MAX_RESULTS: "750"
+      GEMINI_MODEL: "gemini-3.5-flash"
+      GEMINI_LITE_MODEL: "gemini-3.5-flash-lite"
       LLM_CORE_TOP_N: "15"
       LLM_LITE_TOP_N: "25"
       LLM_BATCH_SIZE: "1"
@@ -49,6 +52,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore LLM Cache
+        id: llm-cache-restore
+        uses: actions/cache/restore@v4
+        with:
+          path: outputs/llm_cache.json
+          key: llm-cache-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            llm-cache-${{ runner.os }}-
+
       - name: Install PDF Tooling
         run: |
           sudo apt-get update
@@ -56,9 +68,17 @@ jobs:
 
       - name: Run Weekly Pipeline
         run: |
+          set -o pipefail
           chmod +x scripts/run_weekly_digest.sh scripts/render_pdf.sh
           mkdir -p outputs
           ./scripts/run_weekly_digest.sh 2>&1 | tee outputs/workflow.log
+
+      - name: Save LLM Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: outputs/llm_cache.json
+          key: ${{ steps.llm-cache-restore.outputs.cache-primary-key }}
 
       - name: Upload Outputs Artifact
         if: always()
@@ -67,6 +87,7 @@ jobs:
           name: digest-outputs-${{ github.run_id }}
           path: |
             outputs/workflow.log
+            outputs/llm_cache.json
             outputs/*_digest.md
             outputs/*_digest.pdf
             outputs/*_digest.json

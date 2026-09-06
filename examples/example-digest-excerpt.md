@@ -47,7 +47,6 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Consider the potential benefit of rapid AST in specific high-risk populations, such as those with suspected carbapenem-resistant infections, where it showed a trend towards faster effective therapy.
     - Continue to rely on robust antimicrobial stewardship programs to guide appropriate antibiotic selection and de-escalation.
 
-    **Read priority:** Read if time
 
 ---
 
@@ -75,7 +74,6 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Clinicians should be aware of potential hypersensitivity reactions and monitor for thromboembolic events if this agent becomes available.
     - Further studies are needed to confirm long-term safety and efficacy and to understand its role in the treatment algorithm.
 
-    **Read priority:** Read now
 
 ---
 
@@ -102,7 +100,6 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Monitor for results from larger, phase 3 trials to confirm the efficacy and safety of this promising 4-month regimen.
     - If confirmed, this regimen could significantly shorten treatment duration for drug-susceptible pulmonary tuberculosis, potentially improving adherence and outcomes.
 
-    **Read priority:** Read if time
 
 ---
 
@@ -130,7 +127,6 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Clinicians should watch for further research on bNAb combinations, optimal dosing, and patient selection criteria as this strategy moves towards broader clinical applicability.
     - This study represents an important step towards HIV remission, but bNAb therapy is not yet ready for routine clinical use outside of research settings.
 
-    **Read priority:** Read now
 
 ---
 
@@ -157,6 +153,5 @@ It is not a clinical recommendation, systematic review, guideline, or complete l
     - Consider DOR/ISL as a potential switch option for virologically suppressed patients, even if baseline proviral DNA testing reveals NNRTI RAMs or M184I/V.
     - The presence of NNRTI RAMs or M184I/V in proviral DNA at baseline may not preclude successful virologic suppression with DOR/ISL in switch settings.
 
-    **Read priority:** Read if time
 
 ---

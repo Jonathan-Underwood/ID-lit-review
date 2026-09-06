@@ -24,6 +24,14 @@ ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
 NATHNAC_OUTBREAKS_RSS_URL = "https://travelhealthpro.org.uk/rss-outbreaks.php"
 NATHNAC_OUTBREAKS_URL = "https://travelhealthpro.org.uk/outbreaks"
+LLM_RCT_GUARDRAIL_VERSION = 1
+LLM_FULL_ENRICHMENT_VERSION = 5
+
+# Only correct confirmed, unambiguous source-feed typos. A general spellchecker
+# risks altering clinical terminology, drug names, and geographical names.
+OUTBREAK_SOURCE_TYPO_CORRECTIONS = {
+    r"\bdeatha\b": "deaths",
+}
 
 _http_telemetry: dict[str, Any] = {}
 
@@ -68,6 +76,14 @@ def snapshot_http_telemetry() -> dict[str, Any]:
         "final_failures": int(_http_telemetry.get("final_failures", 0)),
         "recovered_after_retry": int(_http_telemetry.get("recovered_after_retry", 0)),
     }
+
+
+def utc_now_iso() -> str:
+    return (
+        dt.datetime.now(dt.timezone.utc)
+        .isoformat(timespec="seconds")
+        .replace("+00:00", "Z")
+    )
 
 
 class LLMEnrichmentError(Exception):
@@ -138,17 +154,42 @@ def build_topic_term(topic_config: dict[str, Any]) -> str:
     return "(" + " OR ".join(keyword_terms) + ")"
 
 
-def ncbi_get(url: str, params: dict[str, str]) -> bytes:
+def ncbi_get(url: str, params: dict[str, str], timeout: int = 45) -> bytes:
     # Use POST to avoid 414 Request-URI Too Long for large PubMed queries.
     encoded = urllib.parse.urlencode(params).encode("utf-8")
     req = urllib.request.Request(
         url=url,
         data=encoded,
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "id-literature-digest/1.0",
+        },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=45) as resp:
-        return resp.read()
+    attempts = max(1, int(os.getenv("NCBI_HTTP_RETRY_ATTEMPTS", "4")))
+    backoff_seconds = float(os.getenv("NCBI_HTTP_BACKOFF_SECONDS", "2.0"))
+    jitter_seconds = float(os.getenv("NCBI_HTTP_RETRY_JITTER_SECONDS", "1.0"))
+    endpoint = "esearch" if "esearch" in url else "efetch" if "efetch" in url else "request"
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            retryable = exc.code in {408, 429, 500, 502, 503, 504}
+            if not retryable or attempt >= attempts - 1:
+                raise RuntimeError(f"PubMed {endpoint} failed with HTTP {exc.code}") from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            if attempt >= attempts - 1:
+                reason = exc.reason if isinstance(exc, urllib.error.URLError) else str(exc)
+                raise RuntimeError(f"PubMed {endpoint} failed after {attempts} attempts: {reason}") from exc
+        wait_seconds = (backoff_seconds * (2**attempt)) + random.uniform(0, jitter_seconds)
+        print(
+            f"Warning: PubMed {endpoint} attempt {attempt + 1}/{attempts} failed; "
+            f"retrying in {wait_seconds:.1f}s.",
+            file=sys.stderr,
+        )
+        time.sleep(wait_seconds)
+    raise RuntimeError(f"PubMed {endpoint} failed after {attempts} attempts")
 
 
 def clean_outbreak_description(text: str, max_len: int = 280) -> str:
@@ -161,6 +202,8 @@ def clean_outbreak_description(text: str, max_len: int = 280) -> str:
         cleaned,
         flags=re.IGNORECASE,
     )
+    for pattern, replacement in OUTBREAK_SOURCE_TYPO_CORRECTIONS.items():
+        cleaned = re.sub(pattern, replacement, cleaned, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s+([,.;:!?])", r"\1", cleaned)
     cleaned = collapse_whitespace(cleaned).strip(" ;")
     return trim_clean_sentence(cleaned, max_len)
@@ -243,9 +286,9 @@ def fetch_nathnac_outbreaks(
 def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: int = 60) -> dict[str, Any]:
     data = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
-    attempts = max(1, int(os.getenv("LLM_HTTP_RETRY_ATTEMPTS", "6")))
+    attempts = max(1, int(os.getenv("LLM_HTTP_RETRY_ATTEMPTS", "4")))
     backoff_seconds = float(os.getenv("LLM_HTTP_BACKOFF_SECONDS", "4.0"))
-    service_unavailable_backoff_seconds = float(os.getenv("LLM_HTTP_503_BACKOFF_SECONDS", "30.0"))
+    service_unavailable_backoff_seconds = float(os.getenv("LLM_HTTP_503_BACKOFF_SECONDS", "10.0"))
     rate_limit_backoff_seconds = float(os.getenv("LLM_HTTP_429_BACKOFF_SECONDS", "75.0"))
     max_backoff_seconds = float(os.getenv("LLM_HTTP_MAX_BACKOFF_SECONDS", "600.0"))
     jitter_seconds = float(os.getenv("LLM_HTTP_RETRY_JITTER_SECONDS", "2.0"))
@@ -277,19 +320,31 @@ def post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeou
                 else:
                     wait_seconds = backoff_seconds * (2**i)
                 wait_seconds = min(max_backoff_seconds, wait_seconds) + random.uniform(0, jitter_seconds)
+                print(
+                    f"Warning: Gemini HTTP {exc.code} on attempt {i + 1}/{attempts}; "
+                    f"retrying in {wait_seconds:.1f}s.",
+                    file=sys.stderr,
+                )
                 time.sleep(wait_seconds)
                 continue
             _telemetry_inc("final_failures")
             raise LLMEnrichmentError(f"http_{exc.code}: {snippet}") from exc
-        except urllib.error.URLError as exc:
+        except (urllib.error.URLError, TimeoutError) as exc:
             _telemetry_inc("url_errors")
             if i < attempts - 1:
                 _telemetry_inc("retries_performed")
                 wait_seconds = min(max_backoff_seconds, backoff_seconds * (2**i)) + random.uniform(0, jitter_seconds)
+                reason = exc.reason if isinstance(exc, urllib.error.URLError) else str(exc)
+                print(
+                    f"Warning: Gemini connection error on attempt {i + 1}/{attempts} "
+                    f"({reason}); retrying in {wait_seconds:.1f}s.",
+                    file=sys.stderr,
+                )
                 time.sleep(wait_seconds)
                 continue
             _telemetry_inc("final_failures")
-            raise LLMEnrichmentError(f"url_error: {exc.reason}") from exc
+            reason = exc.reason if isinstance(exc, urllib.error.URLError) else str(exc)
+            raise LLMEnrichmentError(f"url_error: {reason}") from exc
     _telemetry_inc("final_failures")
     raise LLMEnrichmentError("post_json_failed_after_retries")
 
@@ -298,13 +353,28 @@ def load_cache(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as handle:
-        return json.load(handle)
+        cache = json.load(handle)
+    if not isinstance(cache, dict):
+        return {}
+    # Remove historical fields that are no longer part of enrichment or ranking.
+    for entry in cache.values():
+        if isinstance(entry, dict) and isinstance(entry.get("enrichment"), dict):
+            entry["enrichment"].pop("read_recommendation", None)
+            entry["enrichment"].pop("action", None)
+            entry["enrichment"].pop("confidence", None)
+    return cache
 
 
 def save_cache(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    try:
+        with temporary_path.open("w", encoding="utf-8") as handle:
+            json.dump(payload, handle, indent=2)
+            handle.write("\n")
+        temporary_path.replace(path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
 
 
 def extract_json_blob(text: str) -> dict[str, Any]:
@@ -362,6 +432,7 @@ def gemini_enrich_batch(
 ) -> dict[str, dict[str, Any]]:
     item_lines: list[str] = []
     for art in batch:
+        abstract_text = art.abstract if profile == "full" else art.abstract[:5000]
         item_lines.append(
             textwrap.dedent(
                 f"""
@@ -369,7 +440,8 @@ def gemini_enrich_batch(
                 Title: {art.title[:400]}
                 Journal: {art.journal}
                 Publication types: {", ".join(art.article_types[:4])}
-                Abstract: {art.abstract[:5000]}
+                Primary RCT report: {"yes" if is_rct_article(art.article_types, art.title, art.abstract) else "no"}
+                Abstract: {abstract_text}
                 """
             ).strip()
         )
@@ -384,11 +456,9 @@ def gemini_enrich_batch(
               "items": [
                 {{
                   "pmid": "string",
-                  "one_line_summary": "1 concise sentence focused on clinical relevance",
-                  "read_recommendation": "read_now|read_if_time|awareness_only",
+                  "one_line_summary": "1 concise sentence stating the main reported finding and population",
                   "clinical_relevance_12m": 0-5 integer,
-                  "translation_horizon": "0-12 months|>12 months",
-                  "confidence": 0.0-1.0 number
+                  "translation_horizon": "0-12 months|>12 months"
                 }}
               ]
             }}
@@ -396,11 +466,11 @@ def gemini_enrich_batch(
             Rules:
             - Include one output object per PMID listed below.
             - Keep one_line_summary to <= 30 words.
+            - Use only information in the supplied title, publication types, and abstract.
+            - State when the main result is unclear or not reported in the abstract.
+            - Do not imply causation for observational studies and do not make clinical recommendations.
             - Do not describe a paper as a randomized controlled trial unless it is clearly a primary interventional trial report (not a retrospective cohort, post-hoc analysis, substudy, PK/PD analysis, or secondary analysis).
-            - Set read_recommendation using this rule:
-              - read_now only when evidence appears high-signal for near-term decisions (typically clinical_relevance_12m >= 4 and confidence >= 0.7).
-              - read_if_time when relevance is moderate (typically clinical_relevance_12m 2-3 or confidence < 0.7).
-              - awareness_only for low immediate actionability.
+            - Treat "Primary RCT report: no" as a guardrail: the paper may use randomized-trial data, but must not be described as a primary RCT.
             - Do not include any text outside JSON.
 
             Papers:
@@ -416,38 +486,58 @@ def gemini_enrich_batch(
               "items": [
                 {{
                   "pmid": "string",
-                  "why_it_matters_points": ["exactly 3 concise bullets on context and clinical impact (not actions)"],
-                  "headline_result": "1 sentence with key numeric outcome and comparator if available",
+                  "why_it_matters_points": ["exactly 2 concise bullets on context and clinical impact (not actions)"],
+                  "study_design": "1 factual sentence of no more than 25 words describing explicitly reported design features",
+                  "at_a_glance_summary": "plain-language, non-numeric conclusion of no more than 25 words",
+                  "outcome_label": "Primary outcome|Main outcome",
+                  "primary_outcome": "primary or main reported outcome and timepoint",
+                  "effect_estimate": "primary numerical effect estimate and comparator, or not reported in abstract",
+                  "confidence_interval": "confidence interval exactly as reported, or not reported in abstract",
+                  "effect_units": "shared units for the effect and confidence interval, or an empty string if unitless",
                   "trial_n": "sample size text, e.g. n=842 or not reported",
-                  "major_limitation": "1 concise sentence stating the most important methodological limitation/caveat",
-                  "clinical_takeaway": ["exactly 2 or 3 concise action-oriented bullets"],
-                  "read_recommendation": "read_now|read_if_time|awareness_only",
+                  "major_limitation": "1 evidence-bound sentence stating the most important methodological limitation/caveat",
+                  "clinical_implications": ["exactly 2 concise, cautious implications"],
                   "clinical_impact_12m": 0-5 integer,
                   "method_quality": 0-5 integer,
                   "novelty": 0-5 integer,
-                  "action": "none|watch|discuss|implement_candidate",
-                  "translation_horizon": "0-12 months|>12 months",
-                  "confidence": 0.0-1.0 number
+                  "translation_horizon": "0-12 months|>12 months"
                 }}
               ]
             }}
 
             Rules:
             - Include one output object per PMID listed below.
-            - Keep outputs clinically oriented and concise, but more informative.
-            - headline_result should carry the key numeric effect size/result.
-            - why_it_matters_points must have exactly 3 bullets and must focus on context/importance only (disease burden, who should care, decision impact).
-            - why_it_matters_points must NOT include management instructions and must NOT repeat numeric effect-size details already in headline_result.
-            - If trial n is not stated, set trial_n to "not reported".
-            - major_limitation must be exactly one short sentence naming the most important methodological limitation/caveat (e.g., retrospective design, confounding, small sample, surrogate endpoint, short follow-up, subgroup-only analysis) and if no serious flaws look for an issue with generalisability of findings (e.g. highly selected patient group).
-            - clinical_takeaway must have 2 or 3 short strings and be action-oriented (what to do or watch).
-            - Do not duplicate ideas between why_it_matters_points and clinical_takeaway, and do not repeat the major_limitation text in clinical_takeaway.
+            - Ground every narrative and numeric field solely in the supplied title, publication types, and abstract; do not use outside knowledge.
+            - Keep outputs clinically oriented, concise, and internally consistent.
+            - at_a_glance_summary must state the direction and clinical meaning of the main finding in plain language, without numbers or recommendations.
+            - Extract primary_outcome, effect_estimate, and confidence_interval separately for the visually prominent result box.
+            - Set outcome_label to "Primary outcome" only when the abstract explicitly identifies a prespecified primary outcome; otherwise use "Main outcome" for the main reported outcome.
+            - Include the outcome timepoint in primary_outcome when explicitly reported.
+            - Copy numerical results faithfully from the abstract. Do not calculate an effect estimate or confidence interval.
+            - The outcome, effect estimate, confidence interval, units, timepoint, comparison, and analysis population must all refer to the same primary/main analysis.
+            - Never substitute a secondary, exploratory, per-protocol, or subgroup result when the primary/main result is absent; report the missing element instead.
+            - effect_estimate should include explicitly reported group values, comparison, and effect measure, but not duplicate the confidence interval.
+            - Put a shared unit in effect_units rather than repeating it in effect_estimate and confidence_interval.
+            - confidence_interval should include the confidence level (for example, 95% CI) and bounds, but not the shared unit.
+            - Use an empty effect_units string for unitless measures such as hazard ratios, risk ratios, and odds ratios.
+            - For an absolute difference between percentages, use "percentage points" as the shared unit when supported by the abstract.
+            - If any result element is absent or unclear, use "not reported in abstract" rather than infer it.
+            - why_it_matters_points must have exactly 2 bullets grounded in the supplied material and focused on why the question matters to the intended clinical reader.
+            - why_it_matters_points must not include management instructions, external disease-burden claims, or numeric result details.
+            - study_design must be one sentence of no more than 25 words using only explicitly reported features, such as prospective/retrospective design, multicentre status, randomisation, masking, comparator, trial phase, and follow-up duration.
+            - Never infer multicentre status, randomisation, masking, comparator, phase, or follow-up.
+            - Do not repeat the sample size in study_design because trial_n is displayed separately. If design details are unclear, use "Study design not clearly reported in abstract."
+            - Set trial_n to the total analysed or enrolled sample only when that total is explicitly stated in the abstract.
+            - Do not infer trial_n from allocation ratios, arm sizes, or the number receiving active treatment; otherwise set it to "not reported".
+            - major_limitation must be one short, evidence-bound sentence. Do not invent a weakness; use "Not assessable from abstract." if no important limitation can be identified from the supplied material.
+            - clinical_implications must contain exactly 2 cautious bullets: one on what the finding may mean clinically and one on residual uncertainty or what to watch.
+            - Do not recommend a treatment or practice change unless the abstract directly supports it and the design provides strong evidence.
+            - Do not duplicate ideas between why_it_matters_points and clinical_implications, and do not repeat the major_limitation text in clinical_implications.
             - Do not describe a paper as a randomized controlled trial unless it is clearly a primary interventional trial report (not a retrospective cohort, post-hoc analysis, substudy, PK/PD analysis, or secondary analysis).
-            - If abstract does not provide a clear numeric primary outcome, make headline_result explicitly state that numeric effect size is not reported.
-            - Set read_recommendation using this rule:
-              - read_now only when clinical_impact_12m >= 4, method_quality >= 4, and confidence >= 0.7.
-              - read_if_time for moderate signal (for example impact 2-3 or method quality 2-3).
-              - awareness_only for low immediate actionability.
+            - Treat "Primary RCT report: no" as a guardrail: the paper may use randomized-trial data, but must not be described as a primary RCT.
+            - Score clinical_impact_12m from 0 (none/non-clinical) to 5 (immediate major potential to change clinical decisions).
+            - Score method_quality from 0 (insufficient information) to 5 (very strong design and execution); judge the supplied methods, not journal prestige.
+            - Score novelty from 0 (confirmatory/known) to 5 (highly novel); do not equate novelty with quality.
             - Do not include any text outside JSON.
 
             Papers:
@@ -466,24 +556,17 @@ def gemini_enrich_batch(
             "properties": {
                 "pmid": {"type": "STRING"},
                 "one_line_summary": {"type": "STRING"},
-                "read_recommendation": {
-                    "type": "STRING",
-                    "enum": ["read_now", "read_if_time", "awareness_only"],
-                },
                 "clinical_relevance_12m": {"type": "INTEGER", "minimum": 0, "maximum": 5},
                 "translation_horizon": {
                     "type": "STRING",
                     "enum": ["0-12 months", ">12 months"],
                 },
-                "confidence": {"type": "NUMBER", "minimum": 0.0, "maximum": 1.0},
             },
             "required": [
                 "pmid",
                 "one_line_summary",
-                "read_recommendation",
                 "clinical_relevance_12m",
                 "translation_horizon",
-                "confidence",
             ],
         }
     else:
@@ -495,51 +578,78 @@ def gemini_enrich_batch(
                 "why_it_matters_points": {
                     "type": "ARRAY",
                     "items": {"type": "STRING"},
-                    "minItems": 3,
-                    "maxItems": 3,
+                    "minItems": 2,
+                    "maxItems": 2,
                 },
-                "headline_result": {"type": "STRING"},
+                "study_design": {"type": "STRING"},
+                "at_a_glance_summary": {"type": "STRING"},
+                "outcome_label": {
+                    "type": "STRING",
+                    "enum": ["Primary outcome", "Main outcome"],
+                },
+                "primary_outcome": {"type": "STRING"},
+                "effect_estimate": {"type": "STRING"},
+                "confidence_interval": {"type": "STRING"},
+                "effect_units": {"type": "STRING"},
                 "trial_n": {"type": "STRING"},
                 "major_limitation": {"type": "STRING"},
-                "clinical_takeaway": {
+                "clinical_implications": {
                     "type": "ARRAY",
                     "items": {"type": "STRING"},
                     "minItems": 2,
-                    "maxItems": 3,
-                },
-                "read_recommendation": {
-                    "type": "STRING",
-                    "enum": ["read_now", "read_if_time", "awareness_only"],
+                    "maxItems": 2,
                 },
                 "clinical_impact_12m": {"type": "INTEGER", "minimum": 0, "maximum": 5},
                 "method_quality": {"type": "INTEGER", "minimum": 0, "maximum": 5},
                 "novelty": {"type": "INTEGER", "minimum": 0, "maximum": 5},
-                "action": {
-                    "type": "STRING",
-                    "enum": ["none", "watch", "discuss", "implement_candidate"],
-                },
                 "translation_horizon": {
                     "type": "STRING",
                     "enum": ["0-12 months", ">12 months"],
                 },
-                "confidence": {"type": "NUMBER", "minimum": 0.0, "maximum": 1.0}
             },
             "required": [
                 "pmid",
                 "why_it_matters_points",
-                "headline_result",
+                "study_design",
+                "at_a_glance_summary",
+                "outcome_label",
+                "primary_outcome",
+                "effect_estimate",
+                "confidence_interval",
+                "effect_units",
                 "trial_n",
                 "major_limitation",
-                "clinical_takeaway",
-                "read_recommendation",
+                "clinical_implications",
                 "clinical_impact_12m",
                 "method_quality",
                 "novelty",
-                "action",
-                "translation_horizon",
-                "confidence"
+                "translation_horizon"
             ],
         }
+    generation_config: dict[str, Any] = {
+        "maxOutputTokens": max_output_tokens,
+        "responseMimeType": "application/json",
+        "responseSchema": {
+            "type": "OBJECT",
+            "properties": {
+                "items": {
+                    "type": "ARRAY",
+                    "items": item_schema
+                }
+            },
+            "required": ["items"]
+        },
+    }
+    if gemini_model.startswith("gemini-3"):
+        # Gemini 3.x is tuned for its default sampling settings. This task needs
+        # limited reasoning for the full clinical appraisal and minimal reasoning
+        # for the lightweight extraction pass.
+        generation_config["thinkingConfig"] = {
+            "thinkingLevel": "LOW" if profile == "full" else "MINIMAL"
+        }
+    else:
+        generation_config["temperature"] = 0.1
+
     base_payload = {
         "contents": [
             {
@@ -548,21 +658,7 @@ def gemini_enrich_batch(
                 ]
             }
         ],
-        "generationConfig": {
-            "temperature": 0.1,
-            "maxOutputTokens": max_output_tokens,
-            "responseMimeType": "application/json",
-            "responseSchema": {
-                "type": "OBJECT",
-                "properties": {
-                    "items": {
-                        "type": "ARRAY",
-                        "items": item_schema
-                    }
-                },
-                "required": ["items"]
-            },
-        },
+        "generationConfig": generation_config,
     }
     try:
         response = post_json(
@@ -574,13 +670,14 @@ def gemini_enrich_batch(
         # Some project/model combinations can reject responseSchema; retry without schema once.
         if "http_400" not in normalize(str(exc)):
             raise
+        fallback_generation_config = {
+            key: value
+            for key, value in generation_config.items()
+            if key != "responseSchema"
+        }
         fallback_payload = {
             "contents": base_payload["contents"],
-            "generationConfig": {
-                "temperature": 0.1,
-                "maxOutputTokens": max_output_tokens,
-                "responseMimeType": "application/json",
-            },
+            "generationConfig": fallback_generation_config,
         }
         response = post_json(
             url=url,
@@ -635,15 +732,15 @@ def is_quota_error(exc: Exception) -> bool:
 
 
 def esearch(term: str, start_date: dt.date, end_date: dt.date, retmax: int) -> list[str]:
+    creation_date_clause = (
+        f"{start_date.strftime('%Y/%m/%d')}:{end_date.strftime('%Y/%m/%d')}[crdt]"
+    )
     params = {
         "db": "pubmed",
-        "term": term,
+        "term": f"({term}) AND ({creation_date_clause})",
         "retmax": str(retmax),
         "retmode": "json",
         "sort": "pub date",
-        "datetype": "pdat",
-        "mindate": start_date.isoformat(),
-        "maxdate": end_date.isoformat(),
     }
     api_key = os.getenv("NCBI_API_KEY")
     if api_key:
@@ -654,16 +751,28 @@ def esearch(term: str, start_date: dt.date, end_date: dt.date, retmax: int) -> l
 
 
 def efetch(pmids: list[str]) -> ET.Element:
-    params = {
-        "db": "pubmed",
-        "id": ",".join(pmids),
-        "retmode": "xml",
-    }
-    api_key = os.getenv("NCBI_API_KEY")
-    if api_key:
-        params["api_key"] = api_key
-    payload = ncbi_get(EFETCH_URL, params)
-    return ET.fromstring(payload)
+    batch_size = max(1, int(os.getenv("NCBI_EFETCH_BATCH_SIZE", "200")))
+    combined_root = ET.Element("PubmedArticleSet")
+    total_batches = (len(pmids) + batch_size - 1) // batch_size
+    for batch_number, start in enumerate(range(0, len(pmids), batch_size), start=1):
+        batch = pmids[start : start + batch_size]
+        print(
+            f"PubMed fetch: batch {batch_number}/{total_batches} "
+            f"({len(batch)} records)."
+        )
+        params = {
+            "db": "pubmed",
+            "id": ",".join(batch),
+            "retmode": "xml",
+        }
+        api_key = os.getenv("NCBI_API_KEY")
+        if api_key:
+            params["api_key"] = api_key
+        payload = ncbi_get(EFETCH_URL, params)
+        batch_root = ET.fromstring(payload)
+        for article in batch_root.findall("./PubmedArticle"):
+            combined_root.append(article)
+    return combined_root
 
 
 def text_or_empty(node: ET.Element | None) -> str:
@@ -780,14 +889,18 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
     forbidden_tokens = {
         "pmid",
         "why_it_matters_points",
+        "study_design",
+        "at_a_glance_summary",
+        "outcome_label",
         "headline_result",
+        "primary_outcome",
+        "effect_estimate",
+        "confidence_interval",
+        "effect_units",
         "trial_n",
         "major_limitation",
         "clinical_takeaway",
-        "read_recommendation",
-        "read_now",
-        "read_if_time",
-        "awareness_only",
+        "clinical_implications",
         "clinical_impact_12m",
         "method_quality",
         "novelty",
@@ -798,42 +911,51 @@ def sanitize_enrichment_row(row: dict[str, Any], profile: str) -> dict[str, Any]
     if profile == "full":
         cleaned["why_it_matters_points"] = sanitize_list_field(
             value=cleaned.get("why_it_matters_points"),
-            max_items=3,
+            max_items=2,
             forbidden_tokens=forbidden_tokens,
         )
-        cleaned["headline_result"] = collapse_whitespace(str(cleaned.get("headline_result", "")))
+        cleaned["study_design"] = collapse_whitespace(str(cleaned.get("study_design", "")))
+        cleaned["at_a_glance_summary"] = collapse_whitespace(
+            str(cleaned.get("at_a_glance_summary") or cleaned.get("headline_result", ""))
+        )
+        outcome_label = collapse_whitespace(str(cleaned.get("outcome_label", "")))
+        cleaned["outcome_label"] = (
+            outcome_label if outcome_label in {"Primary outcome", "Main outcome"} else "Main outcome"
+        )
+        cleaned["primary_outcome"] = collapse_whitespace(str(cleaned.get("primary_outcome", "")))
+        cleaned["effect_estimate"] = collapse_whitespace(str(cleaned.get("effect_estimate", "")))
+        cleaned["confidence_interval"] = collapse_whitespace(
+            str(cleaned.get("confidence_interval", ""))
+        )
+        cleaned["effect_units"] = collapse_whitespace(str(cleaned.get("effect_units", "")))
         cleaned["trial_n"] = collapse_whitespace(str(cleaned.get("trial_n", "")))
         cleaned["major_limitation"] = collapse_whitespace(str(cleaned.get("major_limitation", "")))
-        cleaned["clinical_takeaway"] = sanitize_list_field(
-            value=cleaned.get("clinical_takeaway"),
-            max_items=3,
+        cleaned["clinical_implications"] = sanitize_list_field(
+            value=cleaned.get("clinical_implications") or cleaned.get("clinical_takeaway"),
+            max_items=2,
             forbidden_tokens=forbidden_tokens,
         )
+        cleaned.pop("headline_result", None)
+        cleaned.pop("clinical_takeaway", None)
         # Keep structure stable even when model under-produces.
         if not cleaned["why_it_matters_points"]:
-            fallback = cleaned["headline_result"] or "Clinical relevance noted; see abstract for details."
+            fallback = (
+                cleaned["at_a_glance_summary"]
+                or "Clinical relevance noted; see abstract for details."
+            )
             cleaned["why_it_matters_points"] = [fallback]
-        if not cleaned["clinical_takeaway"]:
-            cleaned["clinical_takeaway"] = ["Monitor emerging evidence before changing practice."]
+        if not cleaned["clinical_implications"]:
+            cleaned["clinical_implications"] = [
+                "Interpret the finding in the context of the reported study design.",
+                "Further evidence may be needed before changing practice.",
+            ]
     else:
         cleaned["one_line_summary"] = collapse_whitespace(str(cleaned.get("one_line_summary", "")))
-    cleaned["read_recommendation"] = collapse_whitespace(str(cleaned.get("read_recommendation", "")))
+    cleaned.pop("read_recommendation", None)
+    cleaned.pop("action", None)
+    cleaned.pop("confidence", None)
     cleaned["translation_horizon"] = collapse_whitespace(str(cleaned.get("translation_horizon", "")))
-    if "action" in cleaned:
-        cleaned["action"] = collapse_whitespace(str(cleaned.get("action", "")))
     return cleaned
-
-
-def format_read_recommendation(value: str) -> str:
-    token = normalize(value)
-    mapping = {
-        "read_now": "Read now",
-        "read_if_time": "Read if time",
-        "read if time": "Read if time",
-        "awareness_only": "Awareness only",
-        "awareness only": "Awareness only",
-    }
-    return mapping.get(token, value.strip())
 
 
 def collapse_whitespace(text: str) -> str:
@@ -986,42 +1108,102 @@ def parse_pub_date_display(article: ET.Element) -> str:
 
 
 def is_rct_article(article_types: list[str], title: str = "", abstract: str = "") -> bool:
+    title_text = normalize(title)
+    abstract_text = normalize(abstract)
     trial_text = normalize(f"{title} {abstract}")
-    # Do not label post-hoc/substudy analyses as primary RCTs.
-    if is_secondary_trial_analysis(trial_text):
+    lower_types = {normalize(t) for t in article_types}
+
+    if is_evidence_synthesis(article_types, title, abstract):
+        return False
+    if is_trial_protocol(article_types, title, abstract):
+        return False
+    if is_secondary_trial_analysis(title, abstract):
         return False
     if is_observational_design(trial_text):
         return False
     if has_negated_rct_mention(trial_text):
         return False
-    if any(
-        normalize(t) in {"randomized controlled trial", "randomised controlled trial"}
-        for t in article_types
+
+    pubmed_rct_type = bool(
+        lower_types.intersection({"randomized controlled trial", "randomised controlled trial"})
+    )
+    explicit_primary_title = re.search(
+        r"\b(randomi[sz]ed\b[^.;:]{0,140}\b(?:study|trial)|"
+        r"randomi[sz]ed\s+phase\s*[1-4iIvV]+\s+(?:study|trial)|"
+        r"phase\s*[1-4iIvV]+[^.;:]{0,80}\brandomi[sz]ed[^.;:]{0,40}\b(?:study|trial))\b",
+        title_text,
+    ) is not None
+    direct_randomization = re.search(
+        r"\b(we\s+(?:conducted|performed)\s+(?:a\s+)?(?:multicentre\s+|multicenter\s+)?"
+        r"(?:double-blind\s+|open-label\s+|placebo-controlled\s+)?randomi[sz]ed\s+(?:study|trial)|"
+        r"(?:participants?|patients?|children|adults|women|men)\s+(?:were\s+)?randomly\s+"
+        r"(?:assigned|allocated)|we\s+randomly\s+assigned)\b",
+        abstract_text,
+    ) is not None
+
+    if explicit_primary_title or direct_randomization:
+        return True
+    # Retain PubMed's RCT type only after the explicit synthesis, protocol,
+    # observational, and secondary-analysis exclusions above.
+    return pubmed_rct_type
+
+
+def is_evidence_synthesis(article_types: list[str], title: str = "", abstract: str = "") -> bool:
+    lower_types = {normalize(t) for t in article_types}
+    if lower_types.intersection({"review", "systematic review", "meta-analysis"}):
+        return True
+    title_text = normalize(title)
+    return re.search(r"\b(systematic review|meta-analysis|meta analysis)\b", title_text) is not None
+
+
+def is_trial_protocol(article_types: list[str], title: str = "", abstract: str = "") -> bool:
+    lower_types = {normalize(t) for t in article_types}
+    if lower_types.intersection({"clinical trial protocol", "randomized controlled trial protocol"}):
+        return True
+    title_text = normalize(title)
+    return re.search(
+        r"\b(study protocol|trial protocol|protocol for (?:a |an )?randomi[sz]ed|design and rationale)\b",
+        title_text,
+    ) is not None
+
+
+def is_secondary_trial_analysis(title: str, abstract: str = "") -> bool:
+    title_text = normalize(title)
+    abstract_text = normalize(abstract)
+    opening_abstract = abstract_text[:900]
+    trial_signal = re.search(
+        r"\b(trial|randomi[sz]ed|randomly assigned|randomly allocated|placebo|double-blind|phase)\b",
+        normalize(f"{title} {abstract}"),
+    )
+    if not trial_signal:
+        return False
+
+    # Title-level wording is strong evidence that the paper reports an analysis
+    # of trial data rather than the trial's prespecified primary comparison.
+    if re.search(
+        r"\b(post[- ]hoc|substudy|sub-study|secondary analysis|exploratory analysis|"
+        r"ancillary analysis|pooled analysis|predictors? of|correlates? of)\b",
+        title_text,
     ):
         return True
-    # PubMed metadata can be incomplete; fall back to trial wording in title/abstract.
-    return bool(
-        re.search(
-            r"\b(randomi[sz]ed|placebo-controlled|double-blind|observer-blind|phase\s*(i|ii|iii|iv|1|2|3|4)\s*/\s*(ii|iii|2|3)|phase\s*(ii|iii|2|3)\s*trial|controlled trial)\b",
-            trial_text,
-        )
-    )
-
-
-def is_secondary_trial_analysis(text: str) -> bool:
-    secondary_signal = re.search(
-        r"\b(post[- ]hoc|substudy|sub-study|secondary analysis|exploratory analysis|ancillary analysis)\b",
-        text,
-    )
-    if not secondary_signal:
-        return False
-    # Common secondary-analysis markers in trial-derived method papers.
-    method_signal = re.search(
-        r"\b(pharmacokinetic|pharmacodynamic|pk/pd|exposure-response|population pharmacokinetic|model-informed|biomarker analysis)\b",
-        text,
-    )
-    trial_signal = re.search(r"\b(trial|randomi[sz]ed|placebo|double-blind|phase)\b", text)
-    return bool(method_signal or trial_signal)
+    # Restrict abstract signals to the opening/method framing. This avoids
+    # misclassifying a genuine primary RCT merely because a later secondary
+    # endpoint is described as post-hoc.
+    if re.search(
+        r"\b(we (?:performed|conducted) an analysis of|we assessed predictors?|"
+        r"pooled analysis of|secondary analysis of|post[- ]hoc analysis of|"
+        r"participants? from (?:a |the )?randomi[sz]ed(?: clinical)? trial|"
+        r"data from (?:a |the )?randomi[sz]ed(?: clinical)? trial)\b",
+        opening_abstract,
+    ):
+        return True
+    if re.search(
+        r"\b(population pharmacokinetic|population pharmacodynamic|pk/pd|exposure-response|"
+        r"model-informed|biomarker analysis)\b",
+        opening_abstract,
+    ) and re.search(r"\b(?:participants?|data) from\b", opening_abstract):
+        return True
+    return False
 
 
 def is_observational_design(text: str) -> bool:
@@ -1040,27 +1222,65 @@ def has_negated_rct_mention(text: str) -> bool:
 
 def trial_strength(article_types: list[str], title: str = "", abstract: str = "") -> int:
     text = normalize(f"{title} {abstract}")
-    if is_observational_design(text) or has_negated_rct_mention(text):
+    if (
+        is_evidence_synthesis(article_types, title, abstract)
+        or is_trial_protocol(article_types, title, abstract)
+        or is_secondary_trial_analysis(title, abstract)
+        or is_observational_design(text)
+        or has_negated_rct_mention(text)
+    ):
         return 0
+    if is_rct_article(article_types, title, abstract):
+        return 2
     lower_types = [normalize(t) for t in article_types]
-    strong_type = any(
-        t in {"randomized controlled trial", "randomised controlled trial", "clinical trial, phase iii"}
-        for t in lower_types
-    )
+    strong_type = any(t == "clinical trial, phase iii" for t in lower_types)
     moderate_type = any(
         t in {"clinical trial, phase ii", "guideline", "practice guideline"}
         for t in lower_types
     )
-    strong_text = re.search(
-        r"\b(randomi[sz]ed|placebo-controlled|double-blind|phase\s*(iii|3)|phase\s*3)\b",
-        text,
-    )
+    strong_text = re.search(r"\bphase\s*(iii|3)\b", text)
     moderate_text = re.search(r"\b(phase\s*(ii|2)|guideline|practice guideline)\b", text)
     if strong_type or strong_text:
         return 2
     if moderate_type or moderate_text:
         return 1
     return 0
+
+
+def requires_rct_cache_guardrail(art: Article) -> bool:
+    if is_rct_article(art.article_types, art.title, art.abstract):
+        return False
+    text = normalize(f"{art.title} {art.abstract}")
+    return bool(
+        is_evidence_synthesis(art.article_types, art.title, art.abstract)
+        or is_trial_protocol(art.article_types, art.title, art.abstract)
+        or is_secondary_trial_analysis(art.title, art.abstract)
+        or re.search(r"\b(rct|trial|randomi[sz]ed|randomly assigned|randomly allocated)\b", text)
+    )
+
+
+def cached_enrichment_is_usable(
+    cached: Any,
+    *,
+    art: Article,
+    expected_model: str,
+    expected_profile: str,
+) -> bool:
+    if not isinstance(cached, dict) or cached.get("model") != expected_model:
+        return False
+    if not isinstance(cached.get("enrichment"), dict):
+        return False
+    cached_profile = str(cached.get("profile", "full")).strip() or "full"
+    if cached_profile != expected_profile:
+        return False
+    if (
+        expected_profile == "full"
+        and cached.get("enrichment_version") != LLM_FULL_ENRICHMENT_VERSION
+    ):
+        return False
+    if requires_rct_cache_guardrail(art):
+        return cached.get("rct_guardrail_version") == LLM_RCT_GUARDRAIL_VERSION
+    return True
 
 
 def id_tie_priority(art: Article) -> int:
@@ -1118,7 +1338,7 @@ def score_article(
     score = 0
     reasons: list[str] = []
     trial_text = normalize(f"{title} {abstract}")
-    secondary_trial_analysis = is_secondary_trial_analysis(trial_text)
+    secondary_trial_analysis = is_secondary_trial_analysis(title, abstract)
     j_weight = journal_weights.get(journal.lower(), 0)
     score += j_weight
     if j_weight > 0:
@@ -1155,17 +1375,25 @@ def score_article(
     }
 
     matched_type_weights: list[tuple[str, int]] = []
+    primary_rct_report = is_rct_article(article_types, title, abstract)
     for key, weight in article_type_weights.items():
         variants = article_type_variants.get(key, [key])
-        if any(any(variant in atype for variant in variants) for atype in lower_types):
-            matched_type_weights.append((key, int(weight)))
+        if not any(any(variant in atype for variant in variants) for atype in lower_types):
+            continue
+        if key == "randomized controlled trial" and not primary_rct_report:
+            if secondary_trial_analysis:
+                reasons.append("article_type:rct_suppressed_secondary_analysis")
+            else:
+                reasons.append("article_type:rct_suppressed_not_primary_report")
+            continue
+        if key.startswith("clinical trial, phase") and secondary_trial_analysis:
+            reasons.append(f"article_type:{key}_suppressed_secondary_analysis")
+            continue
+        matched_type_weights.append((key, int(weight)))
     if matched_type_weights:
         best_key, best_weight = max(matched_type_weights, key=lambda item: item[1])
-        if (best_key == "randomized controlled trial") and secondary_trial_analysis:
-            reasons.append("article_type:rct_suppressed_secondary_analysis")
-        else:
-            score += best_weight
-            reasons.append(f"article_type:{best_key}=+{best_weight}")
+        score += best_weight
+        reasons.append(f"article_type:{best_key}=+{best_weight}")
     else:
         # Strict fallback: infer trial design only with explicit high-quality trial signals.
         inferred_type_weights: list[tuple[str, int]] = []
@@ -1415,6 +1643,7 @@ def apply_llm_enrichment(
     llm_lite_batch_size: int,
     llm_batch_delay_seconds: float,
     llm_max_requests: int,
+    gemini_lite_model: str | None = None,
 ) -> tuple[list[Article], int, dict[str, Any]]:
     if not enabled:
         return articles, 0, {
@@ -1433,6 +1662,7 @@ def apply_llm_enrichment(
         raise RuntimeError("`--llm-enrich` was set but GEMINI_API_KEY is missing.")
 
     cache = load_cache(llm_cache_path)
+    effective_lite_model = gemini_lite_model or gemini_model
     enriched_pmids: set[str] = set()
     quota_exhausted = False
     max_requests_reached = False
@@ -1508,16 +1738,19 @@ def apply_llm_enrichment(
             return
         phase_stats[profile]["target_count"] = len(phase_target)
         phase_stats[profile]["batch_size"] = batch_size
+        phase_model = gemini_model if profile == "full" else effective_lite_model
         unresolved: list[Article] = []
         for art in phase_target:
             cached = cache.get(art.pmid)
-            if isinstance(cached, dict) and cached.get("model") == gemini_model:
-                cached_enrichment = cached.get("enrichment")
-                cached_profile = str(cached.get("profile", "full")).strip() or "full"
-                if isinstance(cached_enrichment, dict) and cached_profile == profile:
-                    enrichment_by_pmid[art.pmid] = cached_enrichment
-                    phase_stats[profile]["cache_hits"] += 1
-                    continue
+            if cached_enrichment_is_usable(
+                cached,
+                art=art,
+                expected_model=phase_model,
+                expected_profile=profile,
+            ):
+                enrichment_by_pmid[art.pmid] = cached["enrichment"]
+                phase_stats[profile]["cache_hits"] += 1
+                continue
             unresolved.append(art)
         phase_stats[profile]["unresolved_count"] = len(unresolved)
 
@@ -1539,14 +1772,20 @@ def apply_llm_enrichment(
             try:
                 batch_enrichment = gemini_enrich_batch(
                     batch=batch,
-                    gemini_model=gemini_model,
+                    gemini_model=phase_model,
                     gemini_api_key=gemini_api_key,
                     profile=profile,
                 )
                 missing_pmids = [art for art in batch if art.pmid not in batch_enrichment]
                 if missing_pmids:
                     raise LLMEnrichmentError("missing_pmid_in_batch_response")
-            except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            except (
+                LLMEnrichmentError,
+                TimeoutError,
+                ValueError,
+                KeyError,
+                json.JSONDecodeError,
+            ) as exc:
                 if is_quota_error(exc):
                     err = short_error(exc)
                     for art in batch:
@@ -1571,14 +1810,23 @@ def apply_llm_enrichment(
                 enrichment = batch_enrichment[art.pmid]
                 enrichment_by_pmid[art.pmid] = enrichment
                 cache[art.pmid] = {
-                    "model": gemini_model,
+                    "model": phase_model,
                     "profile": profile,
+                    "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
+                    "enrichment_version": (
+                        LLM_FULL_ENRICHMENT_VERSION if profile == "full" else 1
+                    ),
                     "enrichment": enrichment,
-                    "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                    "updated_at": utc_now_iso(),
                 }
                 enriched_pmids.add(art.pmid)
             phase_stats[profile]["requests_succeeded"] += 1
             phase_stats[profile]["items_enriched"] += len(batch)
+            save_cache(llm_cache_path, cache)
+            print(
+                f"LLM {profile}: checkpointed {len(batch)} item(s); "
+                f"{len(cache)} cached total."
+            )
 
     for profile, phase_target, phase_batch_size in phase_defs:
         if quota_exhausted or max_requests_reached:
@@ -1604,7 +1852,7 @@ def apply_llm_enrichment(
         try:
             salvage_enrichment = gemini_enrich_batch(
                 batch=salvage_candidates,
-                gemini_model=gemini_model,
+                gemini_model=effective_lite_model,
                 gemini_api_key=gemini_api_key,
                 profile="lite",
             )
@@ -1614,16 +1862,29 @@ def apply_llm_enrichment(
                     continue
                 enrichment_by_pmid[art.pmid] = enrichment
                 cache[art.pmid] = {
-                    "model": gemini_model,
+                    "model": effective_lite_model,
                     "profile": "lite",
+                    "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
                     "enrichment": enrichment,
-                    "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                    "updated_at": utc_now_iso(),
                 }
                 enriched_pmids.add(art.pmid)
                 salvage_stats["items_enriched"] += 1
             salvage_stats["requests_succeeded"] += 1
             max_requests_reached = request_count >= llm_max_requests
-        except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            if salvage_stats["items_enriched"] > 0:
+                save_cache(llm_cache_path, cache)
+                print(
+                    f"LLM salvage: checkpointed {salvage_stats['items_enriched']} item(s); "
+                    f"{len(cache)} cached total."
+                )
+        except (
+            LLMEnrichmentError,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as exc:
             salvage_stats["requests_failed"] += 1
             err = short_error(exc)
             for art in salvage_candidates:
@@ -1660,11 +1921,11 @@ def apply_llm_enrichment(
             continue
         backfill_stats["missing_full_core_count"] += 1
         cached = cache.get(art.pmid)
-        if (
-            isinstance(cached, dict)
-            and cached.get("model") == gemini_model
-            and str(cached.get("profile", "full")).strip() == "full"
-            and isinstance(cached.get("enrichment"), dict)
+        if cached_enrichment_is_usable(
+            cached,
+            art=art,
+            expected_model=gemini_model,
+            expected_profile="full",
         ):
             enrichment = cached["enrichment"]
             enrichment_by_pmid[art.pmid] = enrichment
@@ -1707,13 +1968,23 @@ def apply_llm_enrichment(
             cache[art.pmid] = {
                 "model": gemini_model,
                 "profile": "full",
+                "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
+                "enrichment_version": LLM_FULL_ENRICHMENT_VERSION,
                 "enrichment": enrichment,
-                "updated_at": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+                "updated_at": utc_now_iso(),
             }
             enriched_pmids.add(art.pmid)
             backfill_stats["requests_succeeded"] += 1
             backfill_stats["items_enriched"] += 1
-        except (LLMEnrichmentError, ValueError, KeyError, json.JSONDecodeError) as exc:
+            save_cache(llm_cache_path, cache)
+            print(f"LLM backfill: checkpointed PMID {art.pmid}; {len(cache)} cached total.")
+        except (
+            LLMEnrichmentError,
+            TimeoutError,
+            ValueError,
+            KeyError,
+            json.JSONDecodeError,
+        ) as exc:
             err = short_error(exc)
             art.score_reasons.append(f"llm_error:{err}")
             backfill_stats["requests_failed"] += 1
@@ -1733,6 +2004,7 @@ def apply_llm_enrichment(
                 error_counts[reason] = error_counts.get(reason, 0) + 1
 
     stats = {
+        "models": {"full": gemini_model, "lite": effective_lite_model},
         "target_count": targeted,
         "enriched_count": len(enrichment_by_pmid),
         "failed_count": max(0, targeted - len(enrichment_by_pmid)),
@@ -1804,8 +2076,10 @@ def estimate_llm_requests(
     llm_batch_size: int,
     llm_lite_batch_size: int,
     llm_output_tokens_per_paper_estimate: int,
+    gemini_lite_model: str | None = None,
 ) -> dict[str, Any]:
     cache = load_cache(llm_cache_path)
+    effective_lite_model = gemini_lite_model or gemini_model
     core_n = llm_core_top_n if llm_core_top_n > 0 else llm_top_n
     core_target = select_core_digest(articles=articles, core_size=core_n)
     core_target_pmids = {art.pmid for art in core_target}
@@ -1820,12 +2094,13 @@ def estimate_llm_requests(
 
     def is_cached_for_profile(art: Article, profile: str) -> bool:
         cached = cache.get(art.pmid)
-        if not (isinstance(cached, dict) and cached.get("model") == gemini_model):
-            return False
-        if not isinstance(cached.get("enrichment"), dict):
-            return False
-        cached_profile = str(cached.get("profile", "full")).strip() or "full"
-        return cached_profile == profile
+        expected_model = gemini_model if profile == "full" else effective_lite_model
+        return cached_enrichment_is_usable(
+            cached,
+            art=art,
+            expected_model=expected_model,
+            expected_profile=profile,
+        )
 
     core_cached = sum(1 for art in core_target if is_cached_for_profile(art, "full"))
     lite_cached = sum(1 for art in lite_target if is_cached_for_profile(art, "lite"))
@@ -1858,6 +2133,7 @@ def estimate_llm_requests(
     est_output_total = (est_output_full_per_batch * core_requests) + (est_output_lite_per_batch * lite_requests)
 
     return {
+        "models": {"full": gemini_model, "lite": effective_lite_model},
         "target_count": len(target),
         "cached_count": core_cached + lite_cached,
         "unresolved_count": core_unresolved + lite_unresolved,
@@ -1895,6 +2171,8 @@ def article_links_markdown(art: Article) -> str:
 def compact_trial_n(value: str, max_len: int = 48) -> str:
     cleaned = collapse_whitespace(value)
     cleaned = re.sub(r"^n\s*=\s*", "", cleaned, flags=re.IGNORECASE)
+    if normalize(cleaned) in {"not reported", "not stated", "unknown", "n/a"}:
+        return ""
     if len(cleaned) > max_len:
         cleaned = re.sub(r"\s*\([^)]*\)", "", cleaned)
     cleaned = collapse_whitespace(cleaned).strip(" .;,")
@@ -1914,11 +2192,8 @@ def article_metadata_markdown(
     as_of: dt.date,
     *,
     include_horizon: bool,
-    include_group: bool = False,
 ) -> str:
     parts = [escape_markdown_inline(art.journal)]
-    if include_group:
-        parts.append(f"Group: {escape_markdown_inline(art.journal_group)}")
     if is_rct_article(art.article_types, art.title, art.abstract):
         parts.append("RCT")
     parts.append(format_date_ddmmyyyy(art.pub_date, as_of))
@@ -1938,12 +2213,48 @@ def article_metadata_markdown(
     return " | ".join(parts)
 
 
+def primary_result_box_markdown(enrichment: dict[str, Any] | None) -> str:
+    if not isinstance(enrichment, dict):
+        return ""
+    values = {
+        "Primary outcome": collapse_whitespace(str(enrichment.get("primary_outcome", ""))),
+        "Effect estimate": collapse_whitespace(str(enrichment.get("effect_estimate", ""))),
+        "Confidence interval": collapse_whitespace(
+            str(enrichment.get("confidence_interval", ""))
+        ),
+    }
+    if not any(values.values()):
+        return ""
+    outcome_label = collapse_whitespace(str(enrichment.get("outcome_label", "")))
+    if outcome_label not in {"Primary outcome", "Main outcome"}:
+        outcome_label = "Primary outcome"
+    for label, value in values.items():
+        if not value:
+            values[label] = "Not reported in abstract"
+    confidence_interval = values["Confidence interval"]
+    if normalize(confidence_interval) in {"not reported", "not reported in abstract"}:
+        confidence_interval = "CI not reported in abstract"
+    effect_units = collapse_whitespace(str(enrichment.get("effect_units", "")))
+    unit_separator = "" if effect_units in {"%", "°C"} else " "
+    units_suffix = (
+        f"{unit_separator}{escape_markdown_inline(effect_units)}" if effect_units else ""
+    )
+    return (
+        "    > **PRIMARY RESULT**  \n"
+        f"    > **{outcome_label}:** {escape_markdown_inline(values['Primary outcome'])}  \n"
+        f"    > **Effect estimate:** {escape_markdown_inline(values['Effect estimate'])} "
+        f"({escape_markdown_inline(confidence_interval)}){units_suffix}\n"
+    )
+
+
 def has_full_enrichment_payload(enrichment: dict[str, Any] | None) -> bool:
     if not isinstance(enrichment, dict):
         return False
     why = enrichment.get("why_it_matters_points")
-    takeaways = enrichment.get("clinical_takeaway")
-    headline = str(enrichment.get("headline_result", "")).strip()
+    takeaways = enrichment.get("clinical_implications") or enrichment.get("clinical_takeaway")
+    headline = str(
+        enrichment.get("at_a_glance_summary") or enrichment.get("headline_result", "")
+    ).strip()
     if isinstance(why, list) and any(str(x).strip() for x in why):
         return True
     if isinstance(takeaways, list) and any(str(x).strip() for x in takeaways):
@@ -1965,7 +2276,15 @@ def _compact_at_a_glance_text(text: str, max_len: int = AT_A_GLANCE_TEXT_MAX_LEN
     if len(cleaned) <= max_len:
         return cleaned
 
-    compact = re.sub(r"\s*\([^()]{24,}\)", "", cleaned)
+    # Remove parenthetical statistical detail before shortening. Keeping a short
+    # numeric parenthesis can otherwise make the semicolon inside it look like a
+    # safe sentence boundary (for example, ending a bullet at "(56.2%.").
+    compact = re.sub(
+        r"\s*\((?=[^()]*\d)[^()]*\)",
+        "",
+        cleaned,
+    )
+    compact = re.sub(r"\s*\([^()]{24,}\)", "", compact)
     compact = collapse_whitespace(compact)
     if len(compact) <= max_len:
         return compact
@@ -1979,16 +2298,32 @@ def _compact_at_a_glance_text(text: str, max_len: int = AT_A_GLANCE_TEXT_MAX_LEN
         if match and match.start() >= int(max_len * 0.35):
             return compact[: match.start()].rstrip(" ,;:") + "."
 
-    compared = re.search(r"\bcompared (?:with|to) [^,;.()]+", compact, flags=re.IGNORECASE)
+    compared = re.search(
+        r"\bcompared (?:with|to) .+?(?=\s+(?:across|among)\b|[,;.()]|$)",
+        compact,
+        flags=re.IGNORECASE,
+    )
     if compared and compared.end() <= max_len + 120:
         return compact[: compared.end()].rstrip(" ,;:") + "."
 
-    return trim_clean_sentence(compact, max_len)
+    trimmed = trim_clean_sentence(compact, max_len)
+    # Never present an unmatched parenthesis or bracket as a finished sentence.
+    for opening, closing in (("(", ")"), ("[", "]")):
+        if trimmed.count(opening) > trimmed.count(closing):
+            trimmed = trimmed.rsplit(opening, 1)[0].rstrip(" ,;:")
+            if trimmed and trimmed[-1] not in ".!?":
+                trimmed += "."
+    return trimmed
 
 
 def _at_a_glance_text(art: Article) -> str:
     enrichment = art.llm_enrichment if isinstance(art.llm_enrichment, dict) else {}
-    headline = str(enrichment.get("headline_result") or enrichment.get("one_line_summary") or "").strip()
+    headline = str(
+        enrichment.get("at_a_glance_summary")
+        or enrichment.get("headline_result")
+        or enrichment.get("one_line_summary")
+        or ""
+    ).strip()
     if not headline:
         headline = f"High-priority paper: {art.title.rstrip('.')}"
     return _compact_at_a_glance_text(headline)
@@ -2002,14 +2337,9 @@ def build_at_a_glance(core: list[Article], max_items: int = 4) -> list[tuple[str
     if max_items <= 0:
         return []
 
-    preferred = [
-        art
-        for art in core
-        if isinstance(art.llm_enrichment, dict)
-        and normalize(str(art.llm_enrichment.get("read_recommendation", ""))) in {"read_now", "read now"}
-    ]
-    preferred_pmids = {art.pmid for art in preferred}
-    candidates = preferred + [art for art in core if art.pmid not in preferred_pmids]
+    # The core list is already ordered by the combined rule + LLM score.
+    # Preserve it rather than layering on a separate priority judgement.
+    candidates = list(core)
     core_rank_by_pmid = {art.pmid: rank for rank, art in enumerate(core, start=1)}
     used_pmids: set[str] = set()
     bullets: list[tuple[str, str]] = []
@@ -2039,7 +2369,10 @@ def build_at_a_glance(core: list[Article], max_items: int = 4) -> list[tuple[str
             negative_re.search(
                 " ".join(
                     [
-                        str((art.llm_enrichment or {}).get("headline_result", "")),
+                        str(
+                            (art.llm_enrichment or {}).get("at_a_glance_summary")
+                            or (art.llm_enrichment or {}).get("headline_result", "")
+                        ),
                         str((art.llm_enrichment or {}).get("major_limitation", "")),
                     ]
                 )
@@ -2141,20 +2474,22 @@ def write_podcast_source(
                     if one_line:
                         handle.write(f"\n- **Why it matters:** {escape_markdown_inline(one_line)}\n")
 
-                headline_result = str(art.llm_enrichment.get("headline_result", "")).strip()
-                if headline_result:
-                    handle.write(f"- **Headline result:** {escape_markdown_inline(headline_result)}\n")
+                summary = str(
+                    art.llm_enrichment.get("at_a_glance_summary")
+                    or art.llm_enrichment.get("headline_result", "")
+                ).strip()
+                if summary:
+                    handle.write(f"- **Summary:** {escape_markdown_inline(summary)}\n")
 
-                takeaways = art.llm_enrichment.get("clinical_takeaway")
-                if isinstance(takeaways, list) and takeaways:
-                    handle.write("\n- **Clinical takeaway:**\n")
-                    for takeaway in takeaways:
-                        txt = str(takeaway).strip()
+                implications = art.llm_enrichment.get(
+                    "clinical_implications"
+                ) or art.llm_enrichment.get("clinical_takeaway")
+                if isinstance(implications, list) and implications:
+                    handle.write("\n- **Clinical implications:**\n")
+                    for implication in implications:
+                        txt = str(implication).strip()
                         if txt:
                             handle.write(f"  - {escape_markdown_inline(txt)}\n")
-                read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
-                if read_rec:
-                    handle.write(f"\n- **Read priority:** {escape_markdown_inline(read_rec)}\n")
                 handle.write("\n")
 
             linked_records = [editorial_index[p] for p in art.linked_comment_pmids if p in editorial_index]
@@ -2183,6 +2518,7 @@ def write_outputs(
     llm_stats: dict[str, Any] | None = None,
     outbreaks: list[OutbreakItem] | None = None,
     outbreaks_max_items: int = 10,
+    methods_qa: dict[str, Any] | None = None,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     md_path = output_dir / f"{as_of.isoformat()}_digest.md"
@@ -2258,8 +2594,8 @@ def write_outputs(
             handle.write("\n")
             handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=True)}\n")
             handle.write("\n")
-            read_rec = ""
             if art.llm_enrichment:
+                result_box = primary_result_box_markdown(art.llm_enrichment)
                 why_points = art.llm_enrichment.get("why_it_matters_points")
                 if isinstance(why_points, list) and why_points:
                     handle.write("    **Why it matters:**\n")
@@ -2276,37 +2612,144 @@ def write_outputs(
                     if lite_summary:
                         handle.write(f"\n    **Why it matters:** {escape_markdown_inline(lite_summary)}\n")
                 handle.write("\n")
-                headline_result = str(art.llm_enrichment.get("headline_result", "")).strip()
-                if headline_result:
-                    handle.write(f"    **Headline result:** {escape_markdown_inline(headline_result)}\n")
+                study_design = collapse_whitespace(
+                    str(art.llm_enrichment.get("study_design", ""))
+                )
+                if study_design:
+                    handle.write(
+                        f"    **Study design:** {escape_markdown_inline(study_design)}\n\n"
+                    )
+                if result_box:
+                    handle.write(result_box)
+                    handle.write("\n")
+                summary = str(
+                    art.llm_enrichment.get("at_a_glance_summary")
+                    or art.llm_enrichment.get("headline_result", "")
+                ).strip()
+                if summary and not result_box:
+                    handle.write(f"    **Summary:** {escape_markdown_inline(summary)}\n")
                 major_limitation = str(art.llm_enrichment.get("major_limitation", "")).strip()
                 if major_limitation:
                     handle.write(f"\n    **Major limitation:** {escape_markdown_inline(major_limitation)}\n")
-                read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
-            takeaways = art.llm_enrichment.get("clinical_takeaway") if art.llm_enrichment else None
-            if isinstance(takeaways, list) and takeaways:
-                handle.write("\n    **Clinical takeaway:**\n")
-                for takeaway in takeaways:
-                    txt = str(takeaway).strip()
+            implications = (
+                art.llm_enrichment.get("clinical_implications")
+                or art.llm_enrichment.get("clinical_takeaway")
+                if art.llm_enrichment
+                else None
+            )
+            if isinstance(implications, list) and implications:
+                handle.write("\n    **Clinical implications:**\n")
+                for implication in implications:
+                    txt = str(implication).strip()
                     if txt:
                         handle.write(f"    - {escape_markdown_inline(txt)}\n")
-            if read_rec:
-                handle.write(f"\n    **Read priority:** {escape_markdown_inline(read_rec)}\n")
             handle.write("\n---\n\n")
 
         handle.write("## Extended Digest\n\n")
         for i, art in enumerate(extended, start=1):
             title_display = escape_markdown_inline(art.title)
             handle.write(f"{i}. **{title_display}**\n")
-            handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=False, include_group=True)}\n")
+            handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=False)}\n")
             if art.llm_enrichment:
                 lite_summary = str(art.llm_enrichment.get("one_line_summary", "")).strip()
                 if lite_summary:
                     handle.write(f"    LLM note: {escape_markdown_inline(lite_summary)}\n")
-                read_rec = format_read_recommendation(str(art.llm_enrichment.get("read_recommendation", "")))
-                if read_rec:
-                    handle.write(f"    Read priority: {escape_markdown_inline(read_rec)}\n")
             handle.write("\n---\n\n")
+
+        if methods_qa:
+            journal_groups = methods_qa.get("journal_groups", {})
+            journal_parts: list[str] = []
+            if isinstance(journal_groups, dict):
+                for group_name, journals in journal_groups.items():
+                    if not isinstance(journals, list):
+                        continue
+                    names = ", ".join(escape_markdown_inline(str(name)) for name in journals)
+                    journal_parts.append(f"{escape_markdown_inline(str(group_name))}: {names}")
+
+            retrieved_count = int(methods_qa.get("retrieved_count", len(articles)))
+            scored_count = int(methods_qa.get("scored_count", len(articles)))
+            displayed_count = len(top)
+            not_displayed_count = max(0, scored_count - displayed_count)
+            models = methods_qa.get("models", {})
+            full_model = str(models.get("full", "not used")) if isinstance(models, dict) else "not used"
+            lite_model = str(models.get("lite", "not used")) if isinstance(models, dict) else "not used"
+
+            handle.write("## Methods and QA Appendix\n\n")
+            handle.write(
+                "**Sources searched.** Database: PubMed via NCBI E-utilities. "
+                "Outbreak surveillance: NaTHNaC TravelHealthPro RSS. "
+                "Registries: none (no direct trial-registry search).\n\n"
+            )
+            if journal_parts:
+                handle.write("**Journals searched.** " + "; ".join(journal_parts) + ".\n\n")
+            topic_groups = methods_qa.get("topic_groups", {})
+            if isinstance(topic_groups, dict) and topic_groups:
+                handle.write(
+                    "**Full search strategy.** PubMed ESearch combined all journals listed above "
+                    "with OR, applying \\[Journal\\] to every journal, and combined that set with AND "
+                    "against all terms below with OR, applying \\[Title/Abstract\\] to every term.\n\n"
+                )
+                for group_name, terms in topic_groups.items():
+                    if not isinstance(terms, list):
+                        continue
+                    exact_terms = ", ".join(f'"{str(term)}"' for term in terms)
+                    handle.write(
+                        f"**{escape_markdown_inline(str(group_name))}:** {exact_terms}.\n\n"
+                    )
+            else:
+                handle.write(
+                    "**Full search strategy.** Exact PubMed ESearch term: "
+                    + str(methods_qa.get("search_query", "not recorded"))
+                    + "\n\n"
+                )
+            handle.write(
+                "**Limits and cut-off.** "
+                f"Date field: {escape_markdown_inline(str(methods_qa.get('date_field', 'not recorded')))}; "
+                f"inclusive range {methods_qa.get('start_date', 'not recorded')} to "
+                f"{methods_qa.get('end_date', 'not recorded')}; "
+                f"maximum {methods_qa.get('retmax', 'not recorded')} records; "
+                f"search executed at {escape_markdown_inline(str(methods_qa.get('cutoff_utc', 'not recorded')))}.\n\n"
+            )
+            handle.write(
+                "**Eligibility.** Included records had a configured journal, at least one configured "
+                "title/abstract search term, an abstract, and a date inside the search window. Excluded "
+                "records without abstracts and publication types Review, Comment, Published Erratum, "
+                "Editorial, or Letter.\n\n"
+            )
+            handle.write(
+                "**Deduplication and updates.** PubMed ESearch supplies unique PMIDs within the run. "
+                "No additional DOI/title deduplication or persistent previous-issue suppression is "
+                "currently applied. The PubMed creation date is stable, so later online-to-print or "
+                "publication-date updates do not normally retrieve the same PMID again; a separately "
+                "created PMID for the same work could still reappear.\n\n"
+            )
+            handle.write(
+                f"**Selection flow.** {retrieved_count} PubMed records retrieved -> {scored_count} "
+                f"eligible records scored -> {displayed_count} displayed ({len(core)} Core + "
+                f"{len(extended)} Extended); {not_displayed_count} eligible records were below the "
+                "display cut-off.\n\n"
+            )
+            handle.write(
+                "**Scoring and meaning.** Final score = deterministic rule score + LLM priority points. "
+                "The rule score combines journal tier (0-3), journal-group bias (0-1), the highest "
+                "applicable study-type weight (0-4), capped clinical/ID/basic-science keyword points and "
+                "ID bonuses, minus configured preclinical, oncology, review, commentary, letter, and "
+                "erratum penalties. Full-appraisal LLM points are clamp(round(0.55 x novelty + 0.35 x "
+                "12-month clinical impact + 0.10 x method quality + 0.25 for a 0-12-month horizon), 0, 3). "
+                "Lite-appraisal points are clamp(floor(12-month clinical relevance / 2), 0, 2). Scores "
+                "rank relative triage priority; they are not measures of effect size, certainty, or study quality.\n\n"
+            )
+            handle.write(
+                "**Validation and QA.** Deterministic tests cover parsing, exclusions, score components, "
+                "ranking, structured LLM response ranges, and output formatting. LLM output is schema-checked "
+                "and cached by PMID/model/profile. The scoring formula has not been externally validated "
+                "against an independent expert panel or clinical outcomes.\n\n"
+            )
+            handle.write(
+                "**Models.** Core/full appraisal: "
+                f"{escape_markdown_inline(full_model)}; Extended/lite appraisal: "
+                f"{escape_markdown_inline(lite_model)}.\n"
+            )
 
     payload = []
     for art in top:
@@ -2325,7 +2768,15 @@ def write_outputs(
                 "translation_horizon": art.translation_horizon,
                 "category": art.category,
                 "article_types": art.article_types,
-                "llm_enrichment": art.llm_enrichment,
+                "llm_enrichment": (
+                    {
+                        key: value
+                        for key, value in art.llm_enrichment.items()
+                        if key != "read_recommendation"
+                    }
+                    if isinstance(art.llm_enrichment, dict)
+                    else art.llm_enrichment
+                ),
                 "pubmed_url": pubmed_link(art.pmid),
                 "doi_url": doi_link(art.doi) if art.doi else None,
             }
@@ -2353,7 +2804,7 @@ def write_run_summary(
         "retrieved_count": retrieved_count,
         "scored_count": scored_count,
         "llm_enabled": llm_enabled,
-        "generated_at_utc": dt.datetime.utcnow().isoformat(timespec="seconds") + "Z",
+        "generated_at_utc": utc_now_iso(),
     }
     if llm_stats:
         payload["llm"] = {
@@ -2393,6 +2844,7 @@ def run(
     llm_lite_top_n: int,
     llm_cache_path: Path,
     gemini_model: str,
+    gemini_lite_model: str,
     llm_batch_size: int,
     llm_lite_batch_size: int,
     llm_batch_delay_seconds: float,
@@ -2411,12 +2863,24 @@ def run(
     topic_term = build_topic_term(topic_config)
     full_query = f"({journal_term}) AND ({topic_term})"
 
-    end_date = dt.date.today()
-    start_date = end_date - dt.timedelta(days=days)
+    if days < 1:
+        raise ValueError("days must be at least 1")
+    as_of_date = dt.date.today()
+    # CRDT is searched by calendar date rather than exact timestamp. Use the
+    # previous complete UTC days so records created after the morning workflow
+    # cut-off are included in the following run instead of being missed.
+    end_date = as_of_date - dt.timedelta(days=1)
+    start_date = end_date - dt.timedelta(days=days - 1)
+    search_cutoff_utc = utc_now_iso()
+    print(
+        f"PubMed creation-date search: {start_date.isoformat()} to {end_date.isoformat()} "
+        f"(previous {days} complete UTC day(s); cap: {retmax})."
+    )
     pmids = esearch(term=full_query, start_date=start_date, end_date=end_date, retmax=retmax)
     if not pmids:
         raise RuntimeError("No PMIDs returned for the configured query.")
 
+    print(f"PubMed search returned {len(pmids)} PMIDs; fetching article details.")
     root = efetch(pmids)
     articles = parse_articles(
         root=root,
@@ -2432,6 +2896,7 @@ def run(
             llm_lite_top_n=llm_lite_top_n,
             llm_cache_path=llm_cache_path,
             gemini_model=gemini_model,
+            gemini_lite_model=gemini_lite_model,
             llm_batch_size=llm_batch_size,
             llm_lite_batch_size=llm_lite_batch_size,
             llm_output_tokens_per_paper_estimate=llm_output_tokens_per_paper_estimate,
@@ -2449,6 +2914,7 @@ def run(
             llm_lite_top_n=llm_lite_top_n,
             llm_cache_path=llm_cache_path,
             gemini_model=gemini_model,
+            gemini_lite_model=gemini_lite_model,
             llm_batch_size=llm_batch_size,
             llm_lite_batch_size=llm_lite_batch_size,
             llm_output_tokens_per_paper_estimate=llm_output_tokens_per_paper_estimate,
@@ -2463,6 +2929,7 @@ def run(
         llm_lite_top_n=llm_lite_top_n,
         llm_cache_path=llm_cache_path,
         gemini_model=gemini_model,
+        gemini_lite_model=gemini_lite_model,
         llm_batch_size=llm_batch_size,
         llm_lite_batch_size=llm_lite_batch_size,
         llm_batch_delay_seconds=llm_batch_delay_seconds,
@@ -2494,10 +2961,12 @@ def run(
     outbreaks: list[OutbreakItem] = []
     if outbreaks_max_items > 0:
         try:
+            outbreak_end_date = as_of_date
+            outbreak_start_date = outbreak_end_date - dt.timedelta(days=days - 1)
             outbreaks = fetch_nathnac_outbreaks(
                 max_items=outbreaks_max_items,
-                start_date=start_date,
-                end_date=end_date,
+                start_date=outbreak_start_date,
+                end_date=outbreak_end_date,
             )
         except Exception as exc:
             print(f"Warning: could not fetch NaTHNaC outbreaks RSS: {exc}", file=sys.stderr)
@@ -2505,15 +2974,52 @@ def run(
     md_path, json_path = write_outputs(
         articles,
         output_dir=output_dir,
-        as_of=end_date,
+        as_of=as_of_date,
         days=days,
         llm_stats=llm_stats if llm_enrich else None,
         outbreaks=outbreaks,
         outbreaks_max_items=outbreaks_max_items,
+        methods_qa={
+            "journal_groups": {
+                "General medicine and acute care": [
+                    item["name"] for item in journal_config.get("general_medicine_acute_care", [])
+                ],
+                "Infectious diseases, microbiology and IPC": [
+                    item["name"]
+                    for item in journal_config.get("infectious_diseases_microbiology_ipc", [])
+                ],
+                "Basic/translational infection-relevant": [
+                    item["name"]
+                    for item in journal_config.get("basic_translational_infection_relevant", [])
+                ],
+            },
+            "search_query": full_query,
+            "topic_groups": {
+                "Clinical translation terms": topic_config[
+                    "near_term_clinical_translation_keywords"
+                ],
+                "Infectious-disease priority terms": topic_config.get(
+                    "infectious_disease_priority_keywords", []
+                ),
+                "Basic-science terms": topic_config["important_basic_science_keywords"],
+            },
+            "date_field": "PubMed record creation date (CRDT; previous complete UTC days)",
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "cutoff_utc": search_cutoff_utc,
+            "retmax": retmax,
+            "retrieved_count": len(pmids),
+            "scored_count": len(articles),
+            "models": (
+                {"full": gemini_model, "lite": gemini_lite_model}
+                if llm_enrich
+                else {"full": "not used", "lite": "not used"}
+            ),
+        },
     )
     summary_path = write_run_summary(
         output_dir=output_dir,
-        as_of=end_date,
+        as_of=as_of_date,
         retrieved_count=len(pmids),
         scored_count=len(articles),
         llm_enabled=llm_enrich,
@@ -2524,7 +3030,7 @@ def run(
         podcast_path = write_podcast_source(
             articles=articles,
             output_dir=output_dir,
-            as_of=end_date,
+            as_of=as_of_date,
             core_size=max(1, podcast_max_items),
         )
     return md_path, json_path, summary_path, len(articles), enriched_count, llm_stats, podcast_path, len(pmids)
@@ -2538,8 +3044,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--max-results",
         type=int,
-        default=400,
-        help="Maximum PubMed records to retrieve before scoring (default: 400).",
+        default=750,
+        help="Maximum PubMed records to retrieve before scoring (default: 750).",
     )
     parser.add_argument(
         "--output-dir",
@@ -2581,8 +3087,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--gemini-model",
-        default="gemini-2.5-flash",
-        help="Gemini model name for enrichment (default: gemini-2.5-flash).",
+        default="gemini-3.5-flash",
+        help="Gemini model for full/core enrichment (default: gemini-3.5-flash).",
+    )
+    parser.add_argument(
+        "--gemini-lite-model",
+        default="gemini-3.5-flash-lite",
+        help="Gemini model for lightweight enrichment (default: gemini-3.5-flash-lite).",
     )
     parser.add_argument(
         "--llm-batch-size",
@@ -2677,6 +3188,7 @@ def main(argv: list[str] | None = None) -> int:
             llm_lite_top_n=args.llm_lite_top_n,
             llm_cache_path=llm_cache_path,
             gemini_model=args.gemini_model,
+            gemini_lite_model=args.gemini_lite_model,
             llm_batch_size=args.llm_batch_size,
             llm_lite_batch_size=args.llm_lite_batch_size,
             llm_batch_delay_seconds=args.llm_batch_delay_seconds,
