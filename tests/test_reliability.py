@@ -428,6 +428,142 @@ class LLMReliabilityTests(unittest.TestCase):
             "Structured full appraisal.",
         )
 
+    def test_full_prompt_moves_to_next_model_after_retried_503(self) -> None:
+        article = make_article("1", 10)
+        full_result = {"1": {"at_a_glance_summary": "Fallback appraisal."}}
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
+            mock.patch(
+                "litdigest.digest.gemini_enrich_batch",
+                side_effect=[
+                    LLMEnrichmentError("http_503: model experiencing high demand"),
+                    full_result,
+                ],
+            ) as enrich,
+        ):
+            enriched_articles, enriched_count, stats = apply_llm_enrichment(
+                articles=[article],
+                enabled=True,
+                llm_top_n=1,
+                llm_core_top_n=1,
+                llm_lite_top_n=0,
+                llm_cache_path=Path(tmp_dir) / "cache.json",
+                gemini_model="gemini-3.8-flash",
+                gemini_fallback_models=["gemini-3.7-flash"],
+                gemini_lite_model="gemini-3.5-flash-lite",
+                llm_batch_size=1,
+                llm_lite_batch_size=1,
+                llm_batch_delay_seconds=0,
+                llm_max_requests=5,
+            )
+
+        self.assertEqual(
+            [call.kwargs["gemini_model"] for call in enrich.call_args_list],
+            ["gemini-3.8-flash", "gemini-3.7-flash"],
+        )
+        self.assertEqual(
+            [call.kwargs["profile"] for call in enrich.call_args_list],
+            ["full", "full"],
+        )
+        self.assertEqual(enriched_count, 1)
+        self.assertEqual(stats["temporarily_unavailable_models"], ["gemini-3.8-flash"])
+        self.assertEqual(stats["phase_stats"]["full"]["service_unavailable_errors"], 1)
+        self.assertEqual(
+            enriched_articles[0].llm_enrichment["at_a_glance_summary"],
+            "Fallback appraisal.",
+        )
+
+    def test_reserved_core_salvage_keeps_full_prompt(self) -> None:
+        articles = [make_article("1", 10), make_article("2", 9), make_article("3", 8)]
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
+            mock.patch(
+                "litdigest.digest.gemini_enrich_batch",
+                side_effect=[
+                    {"1": {"at_a_glance_summary": "First full appraisal."}},
+                    {"2": {"at_a_glance_summary": "Second full appraisal."}},
+                ],
+            ) as enrich,
+        ):
+            enriched_articles, enriched_count, stats = apply_llm_enrichment(
+                articles=articles,
+                enabled=True,
+                llm_top_n=2,
+                llm_core_top_n=2,
+                llm_lite_top_n=1,
+                llm_cache_path=Path(tmp_dir) / "cache.json",
+                gemini_model="gemini-3.8-flash",
+                gemini_fallback_models=["gemini-3.5-flash-lite"],
+                gemini_lite_model="gemini-3.5-flash-lite",
+                llm_batch_size=1,
+                llm_lite_batch_size=1,
+                llm_batch_delay_seconds=0,
+                llm_max_requests=2,
+            )
+
+        self.assertEqual([call.kwargs["profile"] for call in enrich.call_args_list], ["full", "full"])
+        self.assertEqual(enriched_count, 2)
+        self.assertEqual(stats["salvage_stats"]["items_enriched"], 1)
+        by_pmid = {article.pmid: article for article in enriched_articles}
+        self.assertEqual(
+            by_pmid["2"].llm_enrichment["at_a_glance_summary"],
+            "Second full appraisal.",
+        )
+
+    def test_core_backfill_moves_to_next_model_after_retried_503(self) -> None:
+        articles = [make_article("1", 10), make_article("2", 9)]
+        with (
+            tempfile.TemporaryDirectory() as tmp_dir,
+            mock.patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}),
+            mock.patch(
+                "litdigest.digest.gemini_enrich_batch",
+                side_effect=[
+                    {"1": {"at_a_glance_summary": "First full appraisal."}},
+                    {"2": {"one_line_summary": "Extended summary."}},
+                    LLMEnrichmentError("http_503: model experiencing high demand"),
+                    {"2": {"at_a_glance_summary": "Backfilled full appraisal."}},
+                ],
+            ) as enrich,
+        ):
+            enriched_articles, _enriched_count, stats = apply_llm_enrichment(
+                articles=articles,
+                enabled=True,
+                llm_top_n=1,
+                llm_core_top_n=1,
+                llm_lite_top_n=1,
+                llm_cache_path=Path(tmp_dir) / "cache.json",
+                gemini_model="gemini-3.8-flash",
+                gemini_fallback_models=["gemini-3.7-flash"],
+                gemini_lite_model="gemini-3.5-flash-lite",
+                llm_batch_size=1,
+                llm_lite_batch_size=1,
+                llm_batch_delay_seconds=0,
+                llm_max_requests=5,
+            )
+
+        self.assertEqual(
+            [call.kwargs["gemini_model"] for call in enrich.call_args_list],
+            [
+                "gemini-3.8-flash",
+                "gemini-3.5-flash-lite",
+                "gemini-3.8-flash",
+                "gemini-3.7-flash",
+            ],
+        )
+        self.assertEqual(
+            [call.kwargs["profile"] for call in enrich.call_args_list],
+            ["full", "lite", "full", "full"],
+        )
+        by_pmid = {article.pmid: article for article in enriched_articles}
+        self.assertEqual(
+            by_pmid["2"].llm_enrichment["at_a_glance_summary"],
+            "Backfilled full appraisal.",
+        )
+        self.assertEqual(stats["temporarily_unavailable_models"], ["gemini-3.8-flash"])
+        self.assertEqual(stats["backfill_stats"]["items_enriched"], 1)
+
     def test_workflow_manual_runs_default_to_no_email_and_has_quality_gate(self) -> None:
         workflow = (PROJECT_ROOT / ".github" / "workflows" / "weekly-digest.yml").read_text(
             encoding="utf-8"

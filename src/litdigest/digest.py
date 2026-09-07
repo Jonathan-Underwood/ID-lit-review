@@ -731,6 +731,11 @@ def is_quota_error(exc: Exception) -> bool:
     return "http_429" in msg or "exceeded your current quota" in msg
 
 
+def is_service_unavailable_error(exc: Exception) -> bool:
+    """Return true after post_json has exhausted its retries for a 503 response."""
+    return "http_503" in normalize(str(exc))
+
+
 def esearch(term: str, start_date: dt.date, end_date: dt.date, retmax: int) -> list[str]:
     creation_date_clause = (
         f"{start_date.strftime('%Y/%m/%d')}:{end_date.strftime('%Y/%m/%d')}[crdt]"
@@ -1674,6 +1679,7 @@ def apply_llm_enrichment(
     # must not prevent the separate lite model from producing fallback
     # summaries for the digest.
     quota_exhausted_models: set[str] = set()
+    temporarily_unavailable_models: set[str] = set()
     full_models_attempted: list[str] = []
     max_requests_reached = False
     request_count = 0
@@ -1687,6 +1693,7 @@ def apply_llm_enrichment(
             "requests_succeeded": 0,
             "requests_failed": 0,
             "quota_errors": 0,
+            "service_unavailable_errors": 0,
             "split_retries": 0,
             "items_enriched": 0,
         },
@@ -1699,6 +1706,7 @@ def apply_llm_enrichment(
             "requests_succeeded": 0,
             "requests_failed": 0,
             "quota_errors": 0,
+            "service_unavailable_errors": 0,
             "split_retries": 0,
             "items_enriched": 0,
         },
@@ -1711,6 +1719,7 @@ def apply_llm_enrichment(
             "requests_succeeded": 0,
             "requests_failed": 0,
             "quota_errors": 0,
+            "service_unavailable_errors": 0,
             "split_retries": 0,
             "items_enriched": 0,
         },
@@ -1792,7 +1801,11 @@ def apply_llm_enrichment(
         queue: list[list[Article]] = [
             unresolved[i : i + batch_size] for i in range(0, len(unresolved), batch_size)
         ]
-        while queue and phase_model not in quota_exhausted_models:
+        while (
+            queue
+            and phase_model not in quota_exhausted_models
+            and phase_model not in temporarily_unavailable_models
+        ):
             cap = regular_phase_request_cap if reserve_last_request_for_salvage else llm_max_requests
             if cap > 0 and request_count >= cap:
                 max_requests_reached = True
@@ -1827,6 +1840,14 @@ def apply_llm_enrichment(
                         art.score_reasons.append(f"llm_error:{err}")
                     quota_exhausted_models.add(phase_model)
                     phase_stats[phase_stats_key]["quota_errors"] += 1
+                    phase_stats[phase_stats_key]["requests_failed"] += 1
+                    continue
+                if is_service_unavailable_error(exc):
+                    err = short_error(exc)
+                    for art in batch:
+                        art.score_reasons.append(f"llm_error:{err}")
+                    temporarily_unavailable_models.add(phase_model)
+                    phase_stats[phase_stats_key]["service_unavailable_errors"] += 1
                     phase_stats[phase_stats_key]["requests_failed"] += 1
                     continue
                 if len(batch) > 1 and should_retry_smaller_batch(exc):
@@ -1867,11 +1888,16 @@ def apply_llm_enrichment(
     run_phase(profile="full", phase_target=core_target, batch_size=max(1, llm_batch_size))
 
     # Each Flash model has an independent quota. Walk down the configured
-    # fallback chain only after the preceding model reports hard quota
-    # exhaustion. Every fallback retains the full appraisal prompt/schema.
+    # fallback chain after the preceding model exhausts quota or remains
+    # unavailable after post_json's normal retries. Every fallback retains
+    # the full appraisal prompt/schema, including Flash Lite.
     previous_full_model = gemini_model
     for fallback_model in full_model_chain[1:]:
-        if previous_full_model not in quota_exhausted_models or max_requests_reached:
+        previous_model_failed = (
+            previous_full_model in quota_exhausted_models
+            or previous_full_model in temporarily_unavailable_models
+        )
+        if not previous_model_failed or max_requests_reached:
             break
         unresolved_core = [art for art in core_target if art.pmid not in enrichment_by_pmid]
         if not unresolved_core:
@@ -1893,18 +1919,44 @@ def apply_llm_enrichment(
             batch_size=max(1, llm_lite_batch_size),
         )
 
-    # If we hit the regular-phase cap, spend the reserved final request on a lite salvage pass
-    # so unresolved target papers can still get concise one-line summaries.
-    salvage_candidates = [
-        art for art in target if art.pmid not in enrichment_by_pmid
+    # If we hit the regular-phase cap, reserve the final request for unresolved
+    # core content first. Core salvage always retains the full prompt/schema;
+    # only extended papers use the concise lite profile.
+    unresolved_core_salvage = [
+        art for art in core_target if art.pmid not in enrichment_by_pmid
     ]
+    if unresolved_core_salvage:
+        salvage_profile = "full"
+        salvage_model = next(
+            (
+                model
+                for model in full_model_chain
+                if model not in quota_exhausted_models
+                and model not in temporarily_unavailable_models
+            ),
+            None,
+        )
+        salvage_candidates = unresolved_core_salvage[: max(1, llm_batch_size)]
+    else:
+        salvage_profile = "lite"
+        salvage_model = (
+            effective_lite_model
+            if effective_lite_model not in quota_exhausted_models
+            and effective_lite_model not in temporarily_unavailable_models
+            else None
+        )
+        salvage_candidates = [
+            art for art in lite_target if art.pmid not in enrichment_by_pmid
+        ]
     if (
         salvage_candidates
-        and effective_lite_model not in quota_exhausted_models
+        and salvage_model is not None
         and reserve_last_request_for_salvage
         and llm_max_requests > 0
         and request_count < llm_max_requests
     ):
+        if salvage_profile == "full" and salvage_model not in full_models_attempted:
+            full_models_attempted.append(salvage_model)
         if request_count > 0 and llm_batch_delay_seconds > 0:
             time.sleep(llm_batch_delay_seconds)
         request_count += 1
@@ -1912,9 +1964,9 @@ def apply_llm_enrichment(
         try:
             salvage_enrichment = gemini_enrich_batch(
                 batch=salvage_candidates,
-                gemini_model=effective_lite_model,
+                gemini_model=salvage_model,
                 gemini_api_key=gemini_api_key,
-                profile="lite",
+                profile=salvage_profile,
             )
             for art in salvage_candidates:
                 enrichment = salvage_enrichment.get(art.pmid)
@@ -1922,9 +1974,12 @@ def apply_llm_enrichment(
                     continue
                 enrichment_by_pmid[art.pmid] = enrichment
                 cache[art.pmid] = {
-                    "model": effective_lite_model,
-                    "profile": "lite",
+                    "model": salvage_model,
+                    "profile": salvage_profile,
                     "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
+                    "enrichment_version": (
+                        LLM_FULL_ENRICHMENT_VERSION if salvage_profile == "full" else 1
+                    ),
                     "enrichment": enrichment,
                     "updated_at": utc_now_iso(),
                 }
@@ -1951,8 +2006,10 @@ def apply_llm_enrichment(
                 if not any(r.startswith("llm_error:") for r in art.score_reasons):
                     art.score_reasons.append(f"llm_error:{err}")
             if is_quota_error(exc):
-                quota_exhausted_models.add(effective_lite_model)
+                quota_exhausted_models.add(salvage_model)
                 salvage_stats["quota_errors"] += 1
+            elif is_service_unavailable_error(exc):
+                temporarily_unavailable_models.add(salvage_model)
 
     for art in target:
         enrichment = enrichment_by_pmid.get(art.pmid)
@@ -1980,83 +2037,96 @@ def apply_llm_enrichment(
         if has_full_enrichment_payload(art.llm_enrichment):
             continue
         backfill_stats["missing_full_core_count"] += 1
-        backfill_model = next(
-            (model for model in full_model_chain if model not in quota_exhausted_models),
-            None,
-        )
-        if backfill_model is None:
+        available_backfill_models = [
+            model
+            for model in full_model_chain
+            if model not in quota_exhausted_models
+            and model not in temporarily_unavailable_models
+        ]
+        if not available_backfill_models:
             break
-        cached = cache.get(art.pmid)
-        if cached_enrichment_is_usable(
-            cached,
-            art=art,
-            expected_model=backfill_model,
-            expected_profile="full",
-        ):
-            enrichment = cached["enrichment"]
-            enrichment_by_pmid[art.pmid] = enrichment
-            art.llm_enrichment = enrichment
-            llm_pts = llm_priority_points(enrichment)
-            art.llm_score = llm_pts
-            art.score = art.rule_score + llm_pts
-            if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
-                art.score_reasons.append(f"llm_priority=+{llm_pts}")
-            enriched_pmids.add(art.pmid)
-            backfill_stats["cache_hits"] += 1
-            continue
+        for backfill_model in available_backfill_models:
+            cached = cache.get(art.pmid)
+            if cached_enrichment_is_usable(
+                cached,
+                art=art,
+                expected_model=backfill_model,
+                expected_profile="full",
+            ):
+                enrichment = cached["enrichment"]
+                enrichment_by_pmid[art.pmid] = enrichment
+                art.llm_enrichment = enrichment
+                llm_pts = llm_priority_points(enrichment)
+                art.llm_score = llm_pts
+                art.score = art.rule_score + llm_pts
+                if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
+                    art.score_reasons.append(f"llm_priority=+{llm_pts}")
+                enriched_pmids.add(art.pmid)
+                backfill_stats["cache_hits"] += 1
+                break
 
-        if max_requests_reached:
-            break
-        if llm_max_requests > 0 and request_count >= llm_max_requests:
-            max_requests_reached = True
-            break
-        if request_count > 0 and llm_batch_delay_seconds > 0:
-            time.sleep(llm_batch_delay_seconds)
-        request_count += 1
-        backfill_stats["requests_attempted"] += 1
-        try:
-            full_enrichment = gemini_enrich_batch(
-                batch=[art],
-                gemini_model=backfill_model,
-                gemini_api_key=gemini_api_key,
-                profile="full",
-            )
-            enrichment = full_enrichment.get(art.pmid)
-            if not isinstance(enrichment, dict):
-                raise LLMEnrichmentError("missing_pmid_in_batch_response")
-            enrichment_by_pmid[art.pmid] = enrichment
-            art.llm_enrichment = enrichment
-            llm_pts = llm_priority_points(enrichment)
-            art.llm_score = llm_pts
-            art.score = art.rule_score + llm_pts
-            if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
-                art.score_reasons.append(f"llm_priority=+{llm_pts}")
-            cache[art.pmid] = {
-                "model": backfill_model,
-                "profile": "full",
-                "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
-                "enrichment_version": LLM_FULL_ENRICHMENT_VERSION,
-                "enrichment": enrichment,
-                "updated_at": utc_now_iso(),
-            }
-            enriched_pmids.add(art.pmid)
-            backfill_stats["requests_succeeded"] += 1
-            backfill_stats["items_enriched"] += 1
-            save_cache(llm_cache_path, cache)
-            print(f"LLM backfill: checkpointed PMID {art.pmid}; {len(cache)} cached total.")
-        except (
-            LLMEnrichmentError,
-            TimeoutError,
-            ValueError,
-            KeyError,
-            json.JSONDecodeError,
-        ) as exc:
-            err = short_error(exc)
-            art.score_reasons.append(f"llm_error:{err}")
-            backfill_stats["requests_failed"] += 1
-            if is_quota_error(exc):
-                quota_exhausted_models.add(backfill_model)
-                backfill_stats["quota_errors"] += 1
+            if max_requests_reached:
+                break
+            if llm_max_requests > 0 and request_count >= llm_max_requests:
+                max_requests_reached = True
+                break
+            if request_count > 0 and llm_batch_delay_seconds > 0:
+                time.sleep(llm_batch_delay_seconds)
+            request_count += 1
+            backfill_stats["requests_attempted"] += 1
+            if backfill_model not in full_models_attempted:
+                full_models_attempted.append(backfill_model)
+            try:
+                full_enrichment = gemini_enrich_batch(
+                    batch=[art],
+                    gemini_model=backfill_model,
+                    gemini_api_key=gemini_api_key,
+                    profile="full",
+                )
+                enrichment = full_enrichment.get(art.pmid)
+                if not isinstance(enrichment, dict):
+                    raise LLMEnrichmentError("missing_pmid_in_batch_response")
+                enrichment_by_pmid[art.pmid] = enrichment
+                art.llm_enrichment = enrichment
+                llm_pts = llm_priority_points(enrichment)
+                art.llm_score = llm_pts
+                art.score = art.rule_score + llm_pts
+                if not any(r.startswith("llm_priority=+") for r in art.score_reasons):
+                    art.score_reasons.append(f"llm_priority=+{llm_pts}")
+                cache[art.pmid] = {
+                    "model": backfill_model,
+                    "profile": "full",
+                    "rct_guardrail_version": LLM_RCT_GUARDRAIL_VERSION,
+                    "enrichment_version": LLM_FULL_ENRICHMENT_VERSION,
+                    "enrichment": enrichment,
+                    "updated_at": utc_now_iso(),
+                }
+                enriched_pmids.add(art.pmid)
+                backfill_stats["requests_succeeded"] += 1
+                backfill_stats["items_enriched"] += 1
+                save_cache(llm_cache_path, cache)
+                print(
+                    f"LLM backfill: checkpointed PMID {art.pmid}; "
+                    f"{len(cache)} cached total."
+                )
+                break
+            except (
+                LLMEnrichmentError,
+                TimeoutError,
+                ValueError,
+                KeyError,
+                json.JSONDecodeError,
+            ) as exc:
+                err = short_error(exc)
+                art.score_reasons.append(f"llm_error:{err}")
+                backfill_stats["requests_failed"] += 1
+                if is_quota_error(exc):
+                    quota_exhausted_models.add(backfill_model)
+                    backfill_stats["quota_errors"] += 1
+                    continue
+                if is_service_unavailable_error(exc):
+                    temporarily_unavailable_models.add(backfill_model)
+                    continue
                 break
 
     articles.sort(key=rank_sort_key, reverse=True)
@@ -2083,6 +2153,7 @@ def apply_llm_enrichment(
         "max_requests_reached": max_requests_reached,
         "quota_exhausted": bool(quota_exhausted_models),
         "quota_exhausted_models": sorted(quota_exhausted_models),
+        "temporarily_unavailable_models": sorted(temporarily_unavailable_models),
         "success_rate": round(success_rate, 3),
         "error_counts": error_counts,
         "phase_stats": phase_stats,
@@ -2890,6 +2961,9 @@ def write_run_summary(
                 "max_requests_reached": llm_stats.get("max_requests_reached", False),
                 "quota_exhausted": llm_stats.get("quota_exhausted", False),
                 "quota_exhausted_models": llm_stats.get("quota_exhausted_models", []),
+                "temporarily_unavailable_models": llm_stats.get(
+                    "temporarily_unavailable_models", []
+                ),
                 "full_models_attempted": llm_stats.get("full_models_attempted", []),
                 "core_enriched_count": llm_stats.get("core_enriched_count", 0),
                 "extended_enriched_count": llm_stats.get("extended_enriched_count", 0),
@@ -3311,6 +3385,7 @@ def main(argv: list[str] | None = None) -> int:
         LLM requests used: {llm_stats["requests_used"]}
         LLM max requests reached: {llm_stats["max_requests_reached"]}
         LLM quota exhausted: {llm_stats["quota_exhausted"]}
+        LLM temporarily unavailable models: {llm_stats.get("temporarily_unavailable_models", [])}
         LLM full models attempted: {llm_stats.get("full_models_attempted", [])}
         LLM HTTP attempts (raw): {llm_stats.get("http_telemetry", {}).get("total_attempts", 0)}
         LLM HTTP retries performed: {llm_stats.get("http_telemetry", {}).get("retries_performed", 0)}
