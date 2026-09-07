@@ -178,6 +178,24 @@ class MarkdownFormattingTests(unittest.TestCase):
 
         self.assertIn("**Effect estimate:** Risk ratio 0.92 (CI not reported in abstract)", box)
 
+    def test_non_rct_result_box_uses_headline_without_effect_or_ci(self) -> None:
+        box = primary_result_box_markdown(
+            {
+                "at_a_glance_summary": "Vaccination was associated with fewer hospital admissions across the included observational studies.",
+                "outcome_label": "Main outcome",
+                "primary_outcome": "Hospital admission",
+                "effect_estimate": "Risk ratio 0.78",
+                "confidence_interval": "95% CI 0.70 to 0.87",
+            },
+            structured_result=False,
+        )
+
+        self.assertIn("> **HEADLINE RESULT**", box)
+        self.assertIn("Vaccination was associated with fewer hospital admissions", box)
+        self.assertNotIn("Primary outcome", box)
+        self.assertNotIn("Effect estimate", box)
+        self.assertNotIn("95% CI", box)
+
     def test_confirmed_outbreak_source_typo_is_corrected(self) -> None:
         rss = """<?xml version="1.0" encoding="UTF-8" ?>
         <rss version="2.0"><channel><item>
@@ -231,7 +249,7 @@ class MarkdownFormattingTests(unittest.TestCase):
             journal="Lancet",
             pub_date="01-01-2026",
             abstract="Abstract",
-            article_types=["Journal Article"],
+            article_types=["Journal Article", "Randomized Controlled Trial"],
             doi="10.1000/example",
             linked_comment_pmids=[],
             journal_group="general_medicine_acute_care",
@@ -289,7 +307,7 @@ class MarkdownFormattingTests(unittest.TestCase):
         self.assertNotIn("Core Digest (10-15 mins)", text)
         self.assertNotIn("Extended Digest (up to 60 minutes)", text)
         self.assertIn(
-            "Lancet | 01-01-2026 | Score: 10 (rule 10) | Horizon: 0-12 months | "
+            "Lancet | RCT | 01-01-2026 | Score: 10 (rule 10) | Horizon: 0-12 months | "
             "n=1015 | [PubMed](https://pubmed.ncbi.nlm.nih.gov/1/)",
             text,
         )

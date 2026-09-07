@@ -259,6 +259,11 @@ class LLMReliabilityTests(unittest.TestCase):
             self.assertIn(scoring_field, item_schema["required"])
         prompt_text = post.call_args.kwargs["payload"]["contents"][0]["parts"][0]["text"]
         self.assertIn("FULL_ABSTRACT_END", prompt_text)
+        self.assertIn(
+            "For observational studies, systematic reviews, secondary analyses",
+            prompt_text,
+        )
+        self.assertIn('"not applicable for headline display"', prompt_text)
 
     def test_full_and_lite_profiles_use_separate_models(self) -> None:
         articles = [make_article("1", 10), make_article("2", 9)]

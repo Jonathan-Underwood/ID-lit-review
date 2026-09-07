@@ -510,8 +510,9 @@ def gemini_enrich_batch(
             - Ground every narrative and numeric field solely in the supplied title, publication types, and abstract; do not use outside knowledge.
             - Keep outputs clinically oriented, concise, and internally consistent.
             - at_a_glance_summary must state the direction and clinical meaning of the main finding in plain language, without numbers or recommendations.
-            - Extract primary_outcome, effect_estimate, and confidence_interval separately for the visually prominent result box.
-            - Set outcome_label to "Primary outcome" only when the abstract explicitly identifies a prespecified primary outcome; otherwise use "Main outcome" for the main reported outcome.
+            - For a primary randomized controlled trial report, extract primary_outcome, effect_estimate, and confidence_interval separately for the visually prominent result box.
+            - For observational studies, systematic reviews, secondary analyses, and other non-primary-RCT reports, make at_a_glance_summary a self-contained headline result and set primary_outcome, effect_estimate, and confidence_interval to "not applicable for headline display".
+            - Set outcome_label to "Primary outcome" only for a primary randomized controlled trial whose abstract explicitly identifies a prespecified primary outcome; otherwise use "Main outcome".
             - Include the outcome timepoint in primary_outcome when explicitly reported.
             - Copy numerical results faithfully from the abstract. Do not calculate an effect estimate or confidence interval.
             - The outcome, effect estimate, confidence interval, units, timepoint, comparison, and analysis population must all refer to the same primary/main analysis.
@@ -2356,9 +2357,23 @@ def article_metadata_markdown(
     return " | ".join(parts)
 
 
-def primary_result_box_markdown(enrichment: dict[str, Any] | None) -> str:
+def primary_result_box_markdown(
+    enrichment: dict[str, Any] | None,
+    *,
+    structured_result: bool = True,
+) -> str:
     if not isinstance(enrichment, dict):
         return ""
+    if not structured_result:
+        headline = collapse_whitespace(
+            str(enrichment.get("at_a_glance_summary") or enrichment.get("headline_result", ""))
+        )
+        if not headline:
+            return ""
+        return (
+            "    > **HEADLINE RESULT**  \n"
+            f"    > {escape_markdown_inline(headline)}\n"
+        )
     values = {
         "Primary outcome": collapse_whitespace(str(enrichment.get("primary_outcome", ""))),
         "Effect estimate": collapse_whitespace(str(enrichment.get("effect_estimate", ""))),
@@ -2738,7 +2753,14 @@ def write_outputs(
             handle.write(f"    {article_metadata_markdown(art, as_of, include_horizon=True)}\n")
             handle.write("\n")
             if art.llm_enrichment:
-                result_box = primary_result_box_markdown(art.llm_enrichment)
+                result_box = primary_result_box_markdown(
+                    art.llm_enrichment,
+                    structured_result=is_rct_article(
+                        art.article_types,
+                        art.title,
+                        art.abstract,
+                    ),
+                )
                 why_points = art.llm_enrichment.get("why_it_matters_points")
                 if isinstance(why_points, list) and why_points:
                     handle.write("    **Why it matters:**\n")
